@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4f46e5"/>
+      <stop offset="55%" stop-color="#6366f1"/>
+      <stop offset="100%" stop-color="#8b5cf6"/>
+    </linearGradient>
+    <linearGradient id="innerGlow" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.22"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0.0"/>
+    </linearGradient>
+  </defs>
+  <rect x="24" y="24" width="464" height="464" rx="112" ry="112" fill="url(#bg)"/>
+  <rect x="24" y="24" width="464" height="232" rx="112" ry="112" fill="url(#innerGlow)"/>
+  <rect x="34" y="34" width="444" height="444" rx="102" ry="102" fill="none" stroke="#ffffff" stroke-opacity="0.18" stroke-width="6"/>
+  <!-- Link ring accents -->
+  <path d="M174 176c0-26 21-47 47-47h70c26 0 47 21 47 47" fill="none" stroke="#e0e7ff" stroke-opacity="0.65" stroke-width="22" stroke-linecap="round"/>
+  <!-- Download arrow -->
+  <path d="M256 154v166" fill="none" stroke="#ffffff" stroke-width="34" stroke-linecap="round"/>
+  <path d="M176 250l80 82 80-82" fill="none" stroke="#ffffff" stroke-width="34" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Tray base -->
+  <path d="M138 346v24c0 20 16 36 36 36h164c20 0 36-16 36-36v-24" fill="none" stroke="#ffffff" stroke-width="30" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

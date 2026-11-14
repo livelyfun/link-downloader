@@ -1,7 +1,33 @@
-node_modules/
-dist/
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+.eggs/
 build/
-out/
-*.log
+dist/
+*.spec
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Packaging outputs
+dist-package/
+AppDir/
+*.AppImage
+*.deb
+*.rpm
+*.dmg
+*.exe
+
+# Environment & OS
 .env
 .DS_Store
+Thumbs.db
+*.log
+*.bak
+*.tmp

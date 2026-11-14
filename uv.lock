@@ -1,0 +1,401 @@
+version = 1
+revision = 5
+requires-python = ">=3.11, <3.16"
+resolution-markers = [
+    "implementation_name == 'cpython' and platform_machine == 'x86_64' and sys_platform == 'linux'",
+]
+supported-markers = [
+    "implementation_name == 'cpython' and platform_machine == 'x86_64' and sys_platform == 'linux'",
+]
+
+[[package]]
+name = "altgraph"
+version = "0.17.5"
+source = { registry = "/tmp/wheelhouse" }
+wheels = [
+    { path = "/tmp/wheelhouse/altgraph-0.17.5-py2.py3-none-any.whl" },
+]
+
+[[package]]
+name = "anyio"
+version = "4.16.0"
+source = { registry = "/tmp/wheelhouse" }
+dependencies = [
+    { name = "idna" },
+    { name = "typing-extensions", marker = "python_full_version < '3.15'" },
+]
+wheels = [
+    { path = "/tmp/wheelhouse/anyio-4.16.0-py3-none-any.whl" },
+]
+
+[[package]]
+name = "brotli"
+version = "1.2.1"
+source = { registry = "/tmp/wheelhouse" }
+wheels = [
+    { path = "/tmp/wheelhouse/brotli-1.2.1-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl" },
+]
+
+[[package]]
+name = "certifi"
+version = "2026.10.23"
+source = { registry = "/tmp/wheelhouse" }
+wheels = [
+    { path = "/tmp/wheelhouse/certifi-2026.10.23-py3-none-any.whl" },
+]
+
+[[package]]
+name = "charset-normalizer"
+version = "3.5.2"
+source = { registry = "/tmp/wheelhouse" }
+wheels = [
+    { path = "/tmp/wheelhouse/charset_normalizer-3.5.2-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl" },
+]
+
+[[package]]
+name = "h11"
+version = "0.16.0"
+source = { registry = "/tmp/wheelhouse" }
+wheels = [
+    { path = "/tmp/wheelhouse/h11-0.16.0-py3-none-any.whl" },
+]
+
+[[package]]
+name = "httpcore"
+version = "1.0.9"
+source = { registry = "/tmp/wheelhouse" }
+dependencies = [
+    { name = "certifi" },
+    { name = "h11" },
+]
+wheels = [
+    { path = "/tmp/wheelhouse/httpcore-1.0.9-py3-none-any.whl" },
+]
+
+[[package]]
+name = "httpx"
+version = "0.28.1"
+source = { registry = "/tmp/wheelhouse" }
+dependencies = [
+    { name = "anyio" },
+    { name = "certifi" },
+    { name = "httpcore" },
+    { name = "idna" },
+]
+wheels = [
+    { path = "/tmp/wheelhouse/httpx-0.28.1-py3-none-any.whl" },
+]
+
+[[package]]
+name = "idna"
+version = "3.20"
+source = { registry = "/tmp/wheelhouse" }
+wheels = [
+    { path = "/tmp/wheelhouse/idna-3.20-py3-none-any.whl" },
+]
+
+[[package]]
+name = "iniconfig"
+version = "2.3.1"
+source = { registry = "/tmp/wheelhouse" }
+wheels = [
+    { path = "/tmp/wheelhouse/iniconfig-2.3.1-py3-none-any.whl" },
+]
+
+[[package]]
+name = "link-downloader"
+version = "2.0.0"
+source = { editable = "." }
+dependencies = [
+    { name = "httpx" },
+    { name = "platformdirs" },
+    { name = "pyside6" },
+    { name = "yt-dlp", extra = ["default"] },
+]
+
+[package.optional-dependencies]
+build = [
+    { name = "pyinstaller" },
+]
+dev = [
+    { name = "pytest" },
+    { name = "pytest-qt" },
+    { name = "ruff" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "pyinstaller" },
+    { name = "pytest" },
+    { name = "pytest-qt" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "httpx", specifier = ">=0.27.0" },
+    { name = "platformdirs", specifier = ">=4.0.0" },
+    { name = "pyinstaller", marker = "extra == 'build'", specifier = ">=6.0.0" },
+    { name = "pyside6", specifier = ">=6.6.0" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0.0" },
+    { name = "pytest-qt", marker = "extra == 'dev'", specifier = ">=4.4.0" },
+    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.8.0" },
+    { name = "yt-dlp", extras = ["default"], specifier = ">=2025.1.1" },
+]
+provides-extras = ["dev", "build"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pyinstaller", specifier = ">=6.0.0" },
+    { name = "pytest", specifier = ">=8.0.0" },
+    { name = "pytest-qt", specifier = ">=4.4.0" },
+    { name = "ruff", specifier = ">=0.8.0" },
+]
+
+[[package]]
+name = "mutagen"
+version = "1.48.1"
+source = { registry = "/tmp/wheelhouse" }
+wheels = [
+    { path = "/tmp/wheelhouse/mutagen-1.48.1-py3-none-any.whl" },
+]
+
+[[package]]
+name = "packaging"
+version = "26.3"
+source = { registry = "/tmp/wheelhouse" }
+wheels = [
+    { path = "/tmp/wheelhouse/packaging-26.3-py3-none-any.whl" },
+]
+
+[[package]]
+name = "platformdirs"
+version = "4.14.5"
+source = { registry = "/tmp/wheelhouse" }
+wheels = [
+    { path = "/tmp/wheelhouse/platformdirs-4.14.5-py3-none-any.whl" },
+]
+
+[[package]]
+name = "pluggy"
+version = "1.7.0"
+source = { registry = "/tmp/wheelhouse" }
+wheels = [
+    { path = "/tmp/wheelhouse/pluggy-1.7.0-py3-none-any.whl" },
+]
+
+[[package]]
+name = "pycryptodomex"
+version = "3.24.2"
+source = { registry = "/tmp/wheelhouse" }
+wheels = [
+    { path = "/tmp/wheelhouse/pycryptodomex-3.24.2-cp37-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl" },
+]
+
+[[package]]
+name = "pygments"
+version = "2.21.0"
+source = { registry = "/tmp/wheelhouse" }
+wheels = [
+    { path = "/tmp/wheelhouse/pygments-2.21.0-py3-none-any.whl" },
+]
+
+[[package]]
+name = "pyinstaller"
+version = "6.22.3"
+source = { registry = "/tmp/wheelhouse" }
+dependencies = [
+    { name = "altgraph" },
+    { name = "packaging" },
+    { name = "pyinstaller-hooks-contrib" },
+    { name = "setuptools" },
+]
+wheels = [
+    { path = "/tmp/wheelhouse/pyinstaller-6.22.3-py3-none-manylinux2014_x86_64.whl" },
+]
+
+[[package]]
+name = "pyinstaller-hooks-contrib"
+version = "2026.10"
+source = { registry = "/tmp/wheelhouse" }
+dependencies = [
+    { name = "packaging" },
+]
+wheels = [
+    { path = "/tmp/wheelhouse/pyinstaller_hooks_contrib-2026.10-py3-none-any.whl" },
+]
+
+[[package]]
+name = "pyside6"
+version = "6.12.0"
+source = { registry = "/tmp/wheelhouse" }
+dependencies = [
+    { name = "pyside6-addons" },
+    { name = "pyside6-essentials" },
+    { name = "pyside6-pdf" },
+    { name = "pyside6-webengine" },
+]
+wheels = [
+    { path = "/tmp/wheelhouse/pyside6-6.12.0-cp310-abi3-manylinux_2_34_x86_64.whl" },
+]
+
+[[package]]
+name = "pyside6-addons"
+version = "6.12.0"
+source = { registry = "/tmp/wheelhouse" }
+dependencies = [
+    { name = "pyside6-essentials" },
+]
+wheels = [
+    { path = "/tmp/wheelhouse/pyside6_addons-6.12.0-cp310-abi3-manylinux_2_34_x86_64.whl" },
+]
+
+[[package]]
+name = "pyside6-essentials"
+version = "6.12.0"
+source = { registry = "/tmp/wheelhouse" }
+dependencies = [
+    { name = "shiboken6" },
+]
+wheels = [
+    { path = "/tmp/wheelhouse/pyside6_essentials-6.12.0-cp310-abi3-manylinux_2_34_x86_64.whl" },
+]
+
+[[package]]
+name = "pyside6-pdf"
+version = "6.12.0.140"
+source = { registry = "/tmp/wheelhouse" }
+dependencies = [
+    { name = "pyside6-essentials" },
+]
+wheels = [
+    { path = "/tmp/wheelhouse/pyside6_pdf-6.12.0.140-cp310-abi3-manylinux_2_34_x86_64.whl" },
+]
+
+[[package]]
+name = "pyside6-webengine"
+version = "6.12.0.140"
+source = { registry = "/tmp/wheelhouse" }
+dependencies = [
+    { name = "pyside6-addons" },
+]
+wheels = [
+    { path = "/tmp/wheelhouse/pyside6_webengine-6.12.0.140-cp310-abi3-manylinux_2_34_x86_64.whl" },
+]
+
+[[package]]
+name = "pytest"
+version = "9.2.0"
+source = { registry = "/tmp/wheelhouse" }
+dependencies = [
+    { name = "iniconfig" },
+    { name = "packaging" },
+    { name = "pluggy" },
+    { name = "pygments" },
+]
+wheels = [
+    { path = "/tmp/wheelhouse/pytest-9.2.0-py3-none-any.whl" },
+]
+
+[[package]]
+name = "pytest-qt"
+version = "4.5.0"
+source = { registry = "/tmp/wheelhouse" }
+dependencies = [
+    { name = "pluggy" },
+    { name = "pytest" },
+    { name = "typing-extensions" },
+]
+wheels = [
+    { path = "/tmp/wheelhouse/pytest_qt-4.5.0-py3-none-any.whl" },
+]
+
+[[package]]
+name = "requests"
+version = "2.34.2"
+source = { registry = "/tmp/wheelhouse" }
+dependencies = [
+    { name = "certifi" },
+    { name = "charset-normalizer" },
+    { name = "idna" },
+    { name = "urllib3" },
+]
+wheels = [
+    { path = "/tmp/wheelhouse/requests-2.34.2-py3-none-any.whl" },
+]
+
+[[package]]
+name = "ruff"
+version = "0.17.5"
+source = { registry = "/tmp/wheelhouse" }
+wheels = [
+    { path = "/tmp/wheelhouse/ruff-0.17.5-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl" },
+]
+
+[[package]]
+name = "setuptools"
+version = "84.2.1"
+source = { registry = "/tmp/wheelhouse" }
+wheels = [
+    { path = "/tmp/wheelhouse/setuptools-84.2.1-py3-none-any.whl" },
+]
+
+[[package]]
+name = "shiboken6"
+version = "6.12.0"
+source = { registry = "/tmp/wheelhouse" }
+wheels = [
+    { path = "/tmp/wheelhouse/shiboken6-6.12.0-cp310-abi3-manylinux_2_34_x86_64.whl" },
+]
+
+[[package]]
+name = "typing-extensions"
+version = "4.16.0"
+source = { registry = "/tmp/wheelhouse" }
+wheels = [
+    { path = "/tmp/wheelhouse/typing_extensions-4.16.0-py3-none-any.whl" },
+]
+
+[[package]]
+name = "urllib3"
+version = "2.8.0"
+source = { registry = "/tmp/wheelhouse" }
+wheels = [
+    { path = "/tmp/wheelhouse/urllib3-2.8.0-py3-none-any.whl" },
+]
+
+[[package]]
+name = "websockets"
+version = "17.4"
+source = { registry = "/tmp/wheelhouse" }
+wheels = [
+    { path = "/tmp/wheelhouse/websockets-17.4-cp312-cp312-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl" },
+]
+
+[[package]]
+name = "yt-dlp"
+version = "2026.10.26"
+source = { registry = "/tmp/wheelhouse" }
+wheels = [
+    { path = "/tmp/wheelhouse/yt_dlp-2026.10.26-py3-none-any.whl" },
+]
+
+[package.optional-dependencies]
+default = [
+    { name = "brotli" },
+    { name = "certifi" },
+    { name = "mutagen" },
+    { name = "pycryptodomex" },
+    { name = "requests" },
+    { name = "urllib3" },
+    { name = "websockets" },
+    { name = "yt-dlp-ejs" },
+]
+
+[[package]]
+name = "yt-dlp-ejs"
+version = "0.8.0"
+source = { registry = "/tmp/wheelhouse" }
+wheels = [
+    { path = "/tmp/wheelhouse/yt_dlp_ejs-0.8.0-py3-none-any.whl" },
+]
