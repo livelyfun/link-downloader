@@ -1,5 +1,7 @@
 # Link Downloader
 
+[![GitHub Release](https://img.shields.io/github/v/release/livelyfun/link-downloader?style=flat-square&logo=github)](https://github.com/livelyfun/link-downloader/releases/latest)
+
 **Cross-platform native Python desktop downloader built with PySide6 (Qt 6 Widgets), `yt-dlp`, `httpx`, and SQLite.**
 
 Link Downloader replaces the previous Debian-only Electron/React application ("YT Downloader") with a zero-Electron, pure-Python desktop application for **Windows 10/11**, **macOS (Apple Silicon & Intel)**, and **Linux (Ubuntu, Debian, Linux Mint, Fedora, Arch, and derivatives)**.
