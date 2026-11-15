@@ -1,7 +1,8 @@
-"""Runtime and external dependency detection and diagnostic guidance."""
+"""Runtime and external dependency detection and user-friendly status reporting."""
 
 from __future__ import annotations
 
+import importlib
 import importlib.metadata
 import os
 import re
@@ -11,8 +12,9 @@ import sys
 from pathlib import Path
 
 from link_downloader.core.enums import DependencyCategory
-from link_downloader.core.models import DependencyStatus
-from link_downloader.platform.system_integration import get_platform_key
+from link_downloader.core.models import DependencyStatus, MigrationReport
+from link_downloader.platform.paths import get_config_dir, get_data_dir, get_log_dir
+from link_downloader.platform.system_integration import get_platform_key, get_system_summary
 from link_downloader.services.ffmpeg_service import FfmpegService
 
 _NODE_MIN = (22, 0, 0)
@@ -25,11 +27,55 @@ def _parse_version_tuple(raw: str) -> tuple[int, ...]:
     return tuple(int(n) for n in nums[:4]) if nums else (0,)
 
 
+def _import_module_version(dist_name: str) -> str | None:
+    """Detect frozen or bundled packages via direct import when dist-info metadata is absent."""
+    try:
+        if dist_name == "PySide6":
+            import PySide6
+
+            ver = getattr(PySide6, "__version__", None)
+            return str(ver) if ver else "bundled"
+        if dist_name == "httpx":
+            import httpx
+
+            ver = getattr(httpx, "__version__", None)
+            return str(ver) if ver else "bundled"
+        if dist_name == "yt-dlp":
+            import yt_dlp.version
+
+            ver = getattr(yt_dlp.version, "__version__", None)
+            return str(ver) if ver else "bundled"
+        if dist_name == "yt-dlp-ejs":
+            import yt_dlp_ejs
+
+            ver = getattr(yt_dlp_ejs, "version", None)
+            if not ver and hasattr(yt_dlp_ejs, "_version"):
+                ver = getattr(yt_dlp_ejs._version, "__version__", None)
+            if not ver:
+                ver = getattr(yt_dlp_ejs, "__version__", None)
+            return str(ver) if ver else "bundled"
+
+        mod = importlib.import_module(dist_name.replace("-", "_"))
+        ver = getattr(mod, "__version__", None) or getattr(mod, "version", None)
+        return str(ver) if ver else "bundled"
+    except Exception:
+        return None
+
+
 def _pkg_version(dist_name: str) -> str | None:
     try:
-        return importlib.metadata.version(dist_name)
-    except importlib.metadata.PackageNotFoundError:
-        return None
+        ver = importlib.metadata.version(dist_name)
+        if ver:
+            return ver
+    except Exception:
+        pass
+    return _import_module_version(dist_name)
+
+
+def _pkg_location() -> str:
+    if getattr(sys, "frozen", False):
+        return "Bundled inside Link Downloader"
+    return "Built-in application component"
 
 
 def _run_version(cmd: list[str], pattern: str) -> str | None:
@@ -119,22 +165,13 @@ class DependencyService:
         return {name: {"path": path}}
 
     def check_all(self) -> list[DependencyStatus]:
-        """Inspect all required, recommended, and optional dependencies."""
-        platform_key = get_platform_key()
-
-        # Python core packages
+        """Inspect all built-in and external components with non-technical guidance."""
+        # Core bundled Python components
         pyside_ver = _pkg_version("PySide6")
         httpx_ver = _pkg_version("httpx")
         ytdlp_ver = _pkg_version("yt-dlp")
         ejs_ver = _pkg_version("yt-dlp-ejs")
-
-        if not ytdlp_ver:
-            try:
-                import yt_dlp.version
-
-                ytdlp_ver = yt_dlp.version.__version__
-            except Exception:
-                ytdlp_ver = None
+        pkg_loc = _pkg_location()
 
         ffmpeg_path = self._ffmpeg.find_ffmpeg()
         ffmpeg_ver = self._ffmpeg.get_version(ffmpeg_path)
@@ -146,68 +183,46 @@ class DependencyService:
         js_version = f"{js_info[0]} {js_info[2]}" if js_info else None
         js_path = js_info[1] if js_info else None
 
-        ffmpeg_hint = {
-            "windows": "winget install Gyan.FFmpeg  (or choco install ffmpeg)",
-            "macos": "brew install ffmpeg",
-            "linux": "Debian/Ubuntu: sudo apt install ffmpeg  |  Fedora: sudo dnf install ffmpeg",
-        }[platform_key]
-
-        js_hint = {
-            "windows": "winget install DenoLand.Deno  (recommended Deno 2.3+ or Node.js 22+)",
-            "macos": "brew install deno  (or brew install node)",
-            "linux": "Install Deno 2.3+ (https://deno.com) or Node.js 22+ via your package manager",
-        }[platform_key]
-
         return [
             DependencyStatus(
                 name="PySide6 (Qt 6)",
                 category=DependencyCategory.REQUIRED,
                 available=pyside_ver is not None,
                 version=pyside_ver,
-                path=sys.executable,
-                impact="Provides the native cross-platform desktop interface.",
-                install_hint="pip install PySide6",
-                verify_command="python -c 'import PySide6; print(PySide6.__version__)'",
+                path=pkg_loc if pyside_ver is not None else None,
+                impact="Provides the native desktop window and interface.",
+                install_hint="Included with Link Downloader.",
+                verify_command="Checked automatically",
             ),
             DependencyStatus(
                 name="HTTPX",
                 category=DependencyCategory.REQUIRED,
                 available=httpx_ver is not None,
                 version=httpx_ver,
-                path=sys.executable,
-                impact="Powers direct HTTP/HTTPS streaming file downloads and header probing.",
-                install_hint="pip install httpx",
-                verify_command="python -c 'import httpx; print(httpx.__version__)'",
+                path=pkg_loc if httpx_ver is not None else None,
+                impact="Downloads direct files and links reliably.",
+                install_hint="Included with Link Downloader.",
+                verify_command="Checked automatically",
             ),
             DependencyStatus(
                 name="yt-dlp Python API",
                 category=DependencyCategory.REQUIRED,
                 available=ytdlp_ver is not None,
                 version=ytdlp_ver,
-                path=sys.executable,
-                impact="Extracts metadata and media streams from supported video/audio websites.",
-                install_hint='pip install -U "yt-dlp[default]"',
-                verify_command="python -c 'import yt_dlp; print(yt_dlp.version.__version__)'",
+                path=pkg_loc if ytdlp_ver is not None else None,
+                impact="Finds video and audio formats from supported websites.",
+                install_hint="Included with Link Downloader.",
+                verify_command="Checked automatically",
             ),
             DependencyStatus(
                 name="yt-dlp-ejs",
                 category=DependencyCategory.RECOMMENDED,
                 available=ejs_ver is not None,
                 version=ejs_ver,
-                path=sys.executable,
-                impact="Provides external JS challenge-solving components required for full YouTube format extraction.",
-                install_hint='pip install -U "yt-dlp[default]"  (or pip install -U yt-dlp-ejs)',
-                verify_command="python -c 'import yt_dlp_ejs'",
-            ),
-            DependencyStatus(
-                name="JavaScript Runtime (Deno / Node.js)",
-                category=DependencyCategory.RECOMMENDED,
-                available=js_available,
-                version=js_version,
-                path=js_path,
-                impact="Executed by yt-dlp-ejs to solve YouTube player signatures; without it some formats may be unavailable.",
-                install_hint=js_hint,
-                verify_command="deno --version  (or node --version)",
+                path=pkg_loc if ejs_ver is not None else None,
+                impact="Built-in helper for modern YouTube video extraction.",
+                install_hint="Included with Link Downloader.",
+                verify_command="Checked automatically",
             ),
             DependencyStatus(
                 name="FFmpeg",
@@ -215,9 +230,9 @@ class DependencyService:
                 available=bool(ffmpeg_path and ffmpeg_ver),
                 version=ffmpeg_ver,
                 path=ffmpeg_path,
-                impact="Required for merging high-resolution video+audio streams (1080p+) and converting audio to MP3.",
-                install_hint=ffmpeg_hint,
-                verify_command="ffmpeg -version",
+                impact="Recommended for merging high-quality video and converting audio.",
+                install_hint="Click 'Download FFmpeg' to install automatically inside the app.",
+                verify_command="Checked automatically",
             ),
             DependencyStatus(
                 name="FFprobe",
@@ -225,9 +240,19 @@ class DependencyService:
                 available=bool(ffprobe_path and ffprobe_ver),
                 version=ffprobe_ver,
                 path=ffprobe_path,
-                impact="Assists yt-dlp post-processors with stream inspection and metadata embedding.",
-                install_hint=ffmpeg_hint,
-                verify_command="ffprobe -version",
+                impact="Helps inspect media stream duration, resolution, and audio details.",
+                install_hint="Installed automatically when you click 'Download FFmpeg'.",
+                verify_command="Checked automatically",
+            ),
+            DependencyStatus(
+                name="JavaScript Runtime (Deno / Node.js)",
+                category=DependencyCategory.OPTIONAL,
+                available=js_available,
+                version=js_version,
+                path=js_path,
+                impact="Optional system runtime for complex web player challenges.",
+                install_hint="Optional — Link Downloader already includes built-in YouTube support (yt-dlp-ejs).",
+                verify_command="Checked automatically",
             ),
         ]
 
@@ -240,6 +265,41 @@ class DependencyService:
             if not s.available
             and s.category in (DependencyCategory.REQUIRED, DependencyCategory.RECOMMENDED)
         ]
+
+    @staticmethod
+    def format_diagnostic_report(
+        statuses: list[DependencyStatus],
+        migration_report: MigrationReport | None = None,
+    ) -> str:
+        """Build a clear, user-friendly plain-text status summary."""
+        summary = get_system_summary()
+        lines = [
+            f"Application: {summary.app_name} v{summary.app_version}",
+            f"Mode: {'Packaged Desktop App' if summary.is_frozen else 'Development Build'}",
+            f"System: {summary.os_name} {summary.os_release} ({summary.architecture})",
+            f"Settings Folder: {get_config_dir()}",
+            f"Data Folder: {get_data_dir()}",
+            f"Log Folder: {get_log_dir()}",
+        ]
+        if migration_report is not None:
+            lines.append(
+                f"Previous Data Imported: {migration_report.history_imported_count} items"
+                if migration_report.history_imported_count
+                else "Previous Data Imported: None"
+            )
+        lines.extend(["", "Components:"])
+        for dep in statuses:
+            badge = "Available" if dep.available else (
+                "Not Installed" if dep.category == DependencyCategory.RECOMMENDED else "Optional (Not Installed)"
+            )
+            ver = f"v{dep.version}" if dep.version else "Not detected"
+            lines.append(f"• {dep.name}: {badge} ({ver})")
+            if dep.path:
+                lines.append(f"  Location: {dep.path}")
+            if not dep.available:
+                lines.append(f"  Note: {dep.impact}")
+                lines.append(f"  How to add: {dep.install_hint}")
+        return "\n".join(lines)
 
     @staticmethod
     def environment_diagnostics() -> dict[str, str]:

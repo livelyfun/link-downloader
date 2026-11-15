@@ -10,6 +10,8 @@ import sys
 import tempfile
 from pathlib import Path
 
+from link_downloader import __version__
+
 ROOT_DIR = Path(__file__).resolve().parent.parent
 DIST_DIR = ROOT_DIR / "dist"
 
@@ -64,9 +66,9 @@ def main() -> int:
         arch = _arch()
         darch = "amd64" if arch == "x86_64" else arch
         expected = [
-            DIST_DIR / f"link-downloader-2.0.0-linux-{arch}.tar.gz",
+            DIST_DIR / f"link-downloader-{__version__}-linux-{arch}.tar.gz",
             DIST_DIR / "AppDir" / "AppRun",
-            DIST_DIR / f"link-downloader_2.0.0_{darch}.deb",
+            DIST_DIR / f"link-downloader_{__version__}_{darch}.deb",
             DIST_DIR / "rpm" / "link-downloader.spec",
         ]
         for path in expected:
@@ -74,7 +76,7 @@ def main() -> int:
                 raise FileNotFoundError(f"Expected Linux artifact missing: {path}")
             print(f"[verify] Confirmed artifact: {path}")
 
-        deb_file = DIST_DIR / f"link-downloader_2.0.0_{darch}.deb"
+        deb_file = DIST_DIR / f"link-downloader_{__version__}_{darch}.deb"
         with deb_file.open("rb") as fp:
             if fp.read(8) != b"!<arch>\n":
                 raise RuntimeError(f"Invalid .deb archive header in {deb_file}")

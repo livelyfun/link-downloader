@@ -21,6 +21,7 @@ from link_downloader.platform.paths import get_app_icon_path
 from link_downloader.services.dependency_service import DependencyService
 from link_downloader.services.download_manager import DownloadManager
 from link_downloader.ui.components.dependency_banner import DependencyBanner
+from link_downloader.ui.dialogs.ffmpeg_prompt_dialog import FfmpegPromptDialog
 from link_downloader.ui.pages.download_page import DownloadPage
 from link_downloader.ui.pages.history_page import HistoryPage
 from link_downloader.ui.pages.queue_page import QueuePage
@@ -126,6 +127,7 @@ class MainWindow(QMainWindow):
 
         self.dep_banner = DependencyBanner()
         self.dep_banner.inspect_requested.connect(lambda: self.navigate_to(self.PAGE_SETTINGS))
+        self.dep_banner.download_ffmpeg_requested.connect(self._on_banner_download_ffmpeg)
         banner_wrap = QWidget()
         banner_lay = QVBoxLayout(banner_wrap)
         banner_lay.setContentsMargins(24, 14, 24, 0)
@@ -153,6 +155,10 @@ class MainWindow(QMainWindow):
         self.settings_page.theme_changed.connect(self.apply_theme)
         self._manager.signals.queue_changed.connect(self._update_queue_badges)
         self._manager.signals.job_updated.connect(lambda _j: self._update_queue_badges())
+        self._manager.signals.dependencies_changed.connect(self._refresh_dependency_banner)
+        self._manager.signals.ffmpeg_install_progress.connect(self._on_ffmpeg_banner_progress)
+        self._manager.signals.ffmpeg_install_finished.connect(lambda _p: self._refresh_dependency_banner())
+        self._manager.signals.ffmpeg_install_failed.connect(self._on_ffmpeg_banner_failed)
 
         # Keyboard shortcuts
         QShortcut(QKeySequence("Ctrl+1"), self, lambda: self.navigate_to(self.PAGE_DOWNLOAD))
@@ -195,8 +201,29 @@ class MainWindow(QMainWindow):
     def _refresh_dependency_banner(self) -> None:
         statuses = self._manager.check_dependencies()
         missing = DependencyService.missing_recommended_summary(statuses)
+        self.dep_banner.set_installing(self._manager.is_installing_ffmpeg())
         self.dep_banner.update_statuses(missing)
-        self._banner_wrap.setVisible(self.dep_banner.isVisible())
+        self._banner_wrap.setVisible(not self.dep_banner.isHidden())
+
+    def _on_banner_download_ffmpeg(self) -> None:
+        self.dep_banner.set_installing(True, 0, "Downloading FFmpeg...")
+        self._banner_wrap.setVisible(not self.dep_banner.isHidden())
+        self._manager.install_ffmpeg()
+
+    def _on_ffmpeg_banner_progress(self, percent: int, message: str) -> None:
+        self.dep_banner.set_installing(True, percent, message)
+        self._banner_wrap.setVisible(not self.dep_banner.isHidden())
+
+    def _on_ffmpeg_banner_failed(self, error_msg: str) -> None:
+        self.dep_banner.set_error(error_msg)
+        self._banner_wrap.setVisible(not self.dep_banner.isHidden())
+
+    def prompt_ffmpeg_if_missing(self) -> bool:
+        """Show the optional FFmpeg setup dialog if FFmpeg is not installed yet."""
+        if self._manager.is_ffmpeg_available():
+            return False
+        dlg = FfmpegPromptDialog(self._manager, self)
+        return dlg.exec() == FfmpegPromptDialog.DialogCode.Accepted
 
     def _update_queue_badges(self) -> None:
         jobs = self._manager.list_jobs()

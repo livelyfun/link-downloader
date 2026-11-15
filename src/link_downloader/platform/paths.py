@@ -32,6 +32,14 @@ def get_data_dir() -> Path:
     return path
 
 
+def get_managed_bin_dir() -> Path:
+    """Return the user-writable directory for app-managed binaries (ffmpeg, ffprobe)."""
+    override = os.environ.get("LINK_DOWNLOADER_BIN_DIR")
+    path = Path(override).expanduser() if override else get_data_dir() / "bin"
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
 def get_cache_dir() -> Path:
     """Return the platform-appropriate directory for temporary cache files."""
     override = os.environ.get("LINK_DOWNLOADER_CACHE_DIR")

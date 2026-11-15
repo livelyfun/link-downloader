@@ -7,6 +7,7 @@ import logging
 import sys
 from logging.handlers import RotatingFileHandler
 
+from PySide6.QtCore import QTimer
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication
 
@@ -66,12 +67,17 @@ def run_self_test() -> int:
     manager = DownloadManager()
     manager.startup()
     deps = manager.check_dependencies()
+    dep_map = {d.name: d for d in deps}
+    expected_bundled = ("PySide6 (Qt 6)", "HTTPX", "yt-dlp Python API", "yt-dlp-ejs")
+    missing_bundled = [name for name in expected_bundled if not dep_map.get(name) or not dep_map[name].available]
+    if missing_bundled:
+        raise RuntimeError(f"Bundled dependency check failed: {', '.join(missing_bundled)}")
     window = MainWindow(manager)
     window.close()
     app.processEvents()
     print(
         f"SELF-TEST OK: {__app_name__} v{__version__} | "
-        f"deps_checked={len(deps)} | config={manager.settings.download_folder}"
+        f"deps_checked={len(deps)} | bundled_pkgs_ok=True | config={manager.settings.download_folder}"
     )
     return 0
 
@@ -85,6 +91,7 @@ def run_gui(argv: list[str] | None = None) -> int:
 
     window = MainWindow(manager)
     window.show()
+    QTimer.singleShot(200, window.prompt_ffmpeg_if_missing)
     exit_code = app.exec()
     manager.shutdown()
     return int(exit_code)

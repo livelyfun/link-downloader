@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QProgressBar,
     QPushButton,
     QScrollArea,
     QSpinBox,
@@ -25,7 +26,7 @@ from link_downloader.config.defaults import (
     MIN_CONCURRENT_DOWNLOADS,
     AppSettings,
 )
-from link_downloader.core.enums import OverwriteBehavior, ThemeMode
+from link_downloader.core.enums import DependencyCategory, OverwriteBehavior, ThemeMode
 from link_downloader.core.models import DependencyStatus
 from link_downloader.platform.file_actions import open_folder
 from link_downloader.services.download_manager import DownloadManager
@@ -186,15 +187,23 @@ class SettingsPage(QWidget):
         self._layout.addLayout(btn_row)
 
         # Card 4: Dependency Manager & Diagnostics
-        deps_card = self._make_card("DEPENDENCIES & DIAGNOSTICS")
+        deps_card = self._make_card("COMPONENTS & DIAGNOSTICS")
         d_lay = deps_card.layout()
 
         deps_top = QHBoxLayout()
         deps_desc = QLabel(
-            "Inspect Python packages, FFmpeg/FFprobe, yt-dlp-ejs, and JavaScript runtime status."
+            "Check built-in components and download FFmpeg automatically for high-quality video and audio."
         )
         deps_desc.setObjectName("MutedLabel")
+        deps_desc.setWordWrap(True)
         deps_top.addWidget(deps_desc, 1)
+
+        self.download_ffmpeg_btn = QPushButton("Download FFmpeg")
+        self.download_ffmpeg_btn.setObjectName("PrimaryButton")
+        self.download_ffmpeg_btn.setIcon(make_icon("download", "#ffffff", 14))
+        self.download_ffmpeg_btn.clicked.connect(self._on_download_ffmpeg_clicked)
+        self.download_ffmpeg_btn.setVisible(False)
+        deps_top.addWidget(self.download_ffmpeg_btn)
 
         self.recheck_btn = QPushButton("Re-check")
         self.recheck_btn.setObjectName("GhostButton")
@@ -202,11 +211,23 @@ class SettingsPage(QWidget):
         self.recheck_btn.clicked.connect(self.refresh_dependencies)
         deps_top.addWidget(self.recheck_btn)
 
-        self.diag_btn = QPushButton("Diagnostic Report...")
+        self.diag_btn = QPushButton("Diagnostics...")
         self.diag_btn.setObjectName("GhostButton")
         self.diag_btn.clicked.connect(self._open_diagnostics)
         deps_top.addWidget(self.diag_btn)
         d_lay.addLayout(deps_top)
+
+        self.ffmpeg_progress_bar = QProgressBar()
+        self.ffmpeg_progress_bar.setRange(0, 100)
+        self.ffmpeg_progress_bar.setValue(0)
+        self.ffmpeg_progress_bar.setVisible(False)
+        d_lay.addWidget(self.ffmpeg_progress_bar)
+
+        self.ffmpeg_status_label = QLabel("")
+        self.ffmpeg_status_label.setObjectName("MutedLabel")
+        self.ffmpeg_status_label.setWordWrap(True)
+        self.ffmpeg_status_label.setVisible(False)
+        d_lay.addWidget(self.ffmpeg_status_label)
 
         self.deps_list_layout = QVBoxLayout()
         self.deps_list_layout.setSpacing(8)
@@ -214,6 +235,12 @@ class SettingsPage(QWidget):
         self._layout.addWidget(deps_card)
 
         self._last_deps: list[DependencyStatus] = []
+        self._manager.signals.ffmpeg_install_started.connect(self._on_ffmpeg_started)
+        self._manager.signals.ffmpeg_install_progress.connect(self._on_ffmpeg_progress)
+        self._manager.signals.ffmpeg_install_finished.connect(self._on_ffmpeg_finished)
+        self._manager.signals.ffmpeg_install_failed.connect(self._on_ffmpeg_failed)
+        self._manager.signals.dependencies_changed.connect(self.refresh_dependencies)
+
         self.load_from_manager()
         self.refresh_dependencies()
 
@@ -281,6 +308,13 @@ class SettingsPage(QWidget):
                 item.widget().deleteLater()
 
         self._last_deps = self._manager.check_dependencies()
+        ffmpeg_missing = any(d.name == "FFmpeg" and not d.available for d in self._last_deps)
+        installing = self._manager.is_installing_ffmpeg()
+        self.download_ffmpeg_btn.setVisible(ffmpeg_missing or installing)
+        self.download_ffmpeg_btn.setEnabled(not installing)
+        if not installing:
+            self.download_ffmpeg_btn.setText("Download FFmpeg")
+
         for dep in self._last_deps:
             row = QFrame()
             row.setObjectName("SubCard")
@@ -289,35 +323,100 @@ class SettingsPage(QWidget):
             lay.setSpacing(4)
 
             top = QHBoxLayout()
-            name_lbl = QLabel(f"{dep.name}  ({dep.category.value.title()})")
+            name_lbl = QLabel(dep.name)
             name_lbl.setStyleSheet("font-weight: 600;")
             top.addWidget(name_lbl, 1)
 
-            status_lbl = QLabel(
-                f"Available · {dep.version or 'OK'}" if dep.available else "Missing"
-            )
-            status_lbl.setObjectName("BadgeSuccess" if dep.available else "BadgeWarning")
+            if dep.available:
+                badge_text = f"Available · {dep.version}" if dep.version else "Available"
+                badge_obj = "BadgeSuccess"
+            elif dep.category == DependencyCategory.OPTIONAL:
+                badge_text = "Optional"
+                badge_obj = "MutedLabel"
+            else:
+                badge_text = "Not Installed"
+                badge_obj = "BadgeWarning"
+
+            status_lbl = QLabel(badge_text)
+            status_lbl.setObjectName(badge_obj)
             top.addWidget(status_lbl)
+
+            if dep.name == "FFmpeg" and not dep.available:
+                row_dl_btn = QPushButton("Download FFmpeg")
+                row_dl_btn.setObjectName("PrimaryButton")
+                row_dl_btn.setEnabled(not installing)
+                row_dl_btn.clicked.connect(self._on_download_ffmpeg_clicked)
+                top.addWidget(row_dl_btn)
+
             lay.addLayout(top)
 
-            if dep.path:
-                path_lbl = QLabel(f"Path: {dep.path}")
+            desc_lbl = QLabel(dep.impact)
+            desc_lbl.setObjectName("MutedLabel")
+            desc_lbl.setWordWrap(True)
+            lay.addWidget(desc_lbl)
+
+            if dep.available and dep.path:
+                path_lbl = QLabel(f"Location: {dep.path}")
                 path_lbl.setObjectName("MutedLabel")
+                path_lbl.setWordWrap(True)
                 lay.addWidget(path_lbl)
-
-            if not dep.available:
-                impact_lbl = QLabel(f"Impact: {dep.impact}")
-                impact_lbl.setObjectName("MutedLabel")
-                impact_lbl.setWordWrap(True)
-                lay.addWidget(impact_lbl)
-
-                hint_lbl = QLabel(f"Install: {dep.install_hint}   |   Verify: {dep.verify_command}")
+            elif not dep.available:
+                hint_lbl = QLabel(dep.install_hint)
                 hint_lbl.setObjectName("MutedLabel")
                 hint_lbl.setWordWrap(True)
                 lay.addWidget(hint_lbl)
 
             self.deps_list_layout.addWidget(row)
 
+    def _on_download_ffmpeg_clicked(self) -> None:
+        self._on_ffmpeg_started()
+        self._manager.install_ffmpeg()
+
+    def _on_ffmpeg_started(self) -> None:
+        self.download_ffmpeg_btn.setVisible(True)
+        self.download_ffmpeg_btn.setEnabled(False)
+        self.download_ffmpeg_btn.setText("Downloading...")
+        self.ffmpeg_progress_bar.setVisible(True)
+        self.ffmpeg_progress_bar.setValue(0)
+        self.ffmpeg_status_label.setObjectName("MutedLabel")
+        self.ffmpeg_status_label.style().unpolish(self.ffmpeg_status_label)
+        self.ffmpeg_status_label.style().polish(self.ffmpeg_status_label)
+        self.ffmpeg_status_label.setText("Downloading FFmpeg...")
+        self.ffmpeg_status_label.setVisible(True)
+
+    def _on_ffmpeg_progress(self, percent: int, message: str) -> None:
+        self.download_ffmpeg_btn.setEnabled(False)
+        self.download_ffmpeg_btn.setText(f"Downloading... ({percent}%)")
+        self.ffmpeg_progress_bar.setVisible(True)
+        self.ffmpeg_progress_bar.setValue(percent)
+        self.ffmpeg_status_label.setText(message)
+        self.ffmpeg_status_label.setVisible(True)
+
+    def _on_ffmpeg_finished(self, _path: str) -> None:
+        self.ffmpeg_progress_bar.setValue(100)
+        self.ffmpeg_status_label.setObjectName("SuccessLabel")
+        self.ffmpeg_status_label.style().unpolish(self.ffmpeg_status_label)
+        self.ffmpeg_status_label.style().polish(self.ffmpeg_status_label)
+        self.ffmpeg_status_label.setText("FFmpeg is installed and ready.")
+        self.ffmpeg_status_label.setVisible(True)
+        self.refresh_dependencies()
+
+    def _on_ffmpeg_failed(self, error_msg: str) -> None:
+        self.download_ffmpeg_btn.setEnabled(True)
+        self.download_ffmpeg_btn.setText("Download FFmpeg")
+        self.ffmpeg_progress_bar.setVisible(False)
+        self.ffmpeg_status_label.setObjectName("ErrorLabel")
+        self.ffmpeg_status_label.style().unpolish(self.ffmpeg_status_label)
+        self.ffmpeg_status_label.style().polish(self.ffmpeg_status_label)
+        self.ffmpeg_status_label.setText(error_msg)
+        self.ffmpeg_status_label.setVisible(True)
+        self.refresh_dependencies()
+
     def _open_diagnostics(self) -> None:
-        dlg = DiagnosticDialog(self._last_deps, self._manager.migration_report, self)
+        dlg = DiagnosticDialog(
+            self._last_deps,
+            self._manager.migration_report,
+            self,
+            manager=self._manager,
+        )
         dlg.exec()

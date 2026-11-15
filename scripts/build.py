@@ -75,10 +75,18 @@ def _build_with_pyinstaller() -> Path:
         str(SRC_DIR),
         "--add-data",
         f"{ASSETS_DIR}{os.pathsep}assets",
-        "--collect-data",
+        "--collect-all",
         "yt_dlp_ejs",
         "--hidden-import",
         "yt_dlp_ejs",
+        "--copy-metadata",
+        "PySide6",
+        "--copy-metadata",
+        "httpx",
+        "--copy-metadata",
+        "yt-dlp",
+        "--copy-metadata",
+        "yt-dlp-ejs",
     ]
     if sys.platform == "win32":
         ico = ASSETS_DIR / "icons" / "app_icon.ico"

@@ -23,6 +23,14 @@ class DownloadWorkerSignals(QObject):
     failed = Signal(str, str)  # job_id, error_message
 
 
+class FfmpegWorkerSignals(QObject):
+    """Signals emitted during one-click background FFmpeg installation."""
+
+    progress = Signal(int, str)  # percent (0..100), status_message
+    finished = Signal(str)  # installed ffmpeg binary path
+    failed = Signal(str)  # user-friendly error message
+
+
 class ManagerSignals(QObject):
     """Application-level signals emitted by DownloadManager to UI pages."""
 
@@ -33,3 +41,8 @@ class ManagerSignals(QObject):
     queue_changed = Signal()
     history_updated = Signal()
     settings_changed = Signal(object)  # AppSettings
+    ffmpeg_install_started = Signal()
+    ffmpeg_install_progress = Signal(int, str)
+    ffmpeg_install_finished = Signal(str)
+    ffmpeg_install_failed = Signal(str)
+    dependencies_changed = Signal()

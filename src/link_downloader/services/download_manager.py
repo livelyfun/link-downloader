@@ -35,6 +35,7 @@ from link_downloader.services.metadata_service import MetadataService
 from link_downloader.services.migration_service import LegacyMigrationService
 from link_downloader.services.queue_service import QueueService
 from link_downloader.workers.download_worker import DownloadWorker
+from link_downloader.workers.ffmpeg_worker import FfmpegInstallWorker
 from link_downloader.workers.metadata_worker import MetadataWorker
 
 logger = logging.getLogger(__name__)
@@ -95,6 +96,8 @@ class DownloadManager(QObject):
         self._pause_events: dict[str, threading.Event] = {}
         self._active_workers: dict[str, object] = {}
         self._shutting_down = False
+        self._installing_ffmpeg = False
+        self._ffmpeg_cancel_event: threading.Event | None = None
 
     def startup(self) -> MigrationReport:
         """Run legacy migration if needed and ensure settings and folders are initialized."""
@@ -148,6 +151,49 @@ class DownloadManager(QObject):
 
     def check_dependencies(self) -> list[DependencyStatus]:
         return self._dependency_service.check_all()
+
+    def is_ffmpeg_available(self) -> bool:
+        """Return True if a runnable FFmpeg binary is available."""
+        return self._ffmpeg.is_ffmpeg_available()
+
+    def is_installing_ffmpeg(self) -> bool:
+        """Return True while a one-click FFmpeg installation is in progress."""
+        with self._lock:
+            return self._installing_ffmpeg
+
+    def install_ffmpeg(self) -> bool:
+        """Download and install FFmpeg in the background into the app user data directory."""
+        with self._lock:
+            if self._installing_ffmpeg or self._shutting_down:
+                return False
+            self._installing_ffmpeg = True
+            cancel_event = threading.Event()
+            self._ffmpeg_cancel_event = cancel_event
+            worker = FfmpegInstallWorker(self._ffmpeg, cancel_event=cancel_event)
+            self._active_workers["ffmpeg_install"] = worker
+
+        worker.signals.progress.connect(self.signals.ffmpeg_install_progress.emit)
+        worker.signals.finished.connect(self._on_ffmpeg_install_finished)
+        worker.signals.failed.connect(self._on_ffmpeg_install_failed)
+        self.signals.ffmpeg_install_started.emit()
+        self._pool.start(worker)
+        return True
+
+    def _on_ffmpeg_install_finished(self, ffmpeg_path: str) -> None:
+        with self._lock:
+            self._installing_ffmpeg = False
+            self._ffmpeg_cancel_event = None
+            self._active_workers.pop("ffmpeg_install", None)
+        self.signals.ffmpeg_install_finished.emit(ffmpeg_path)
+        self.signals.dependencies_changed.emit()
+
+    def _on_ffmpeg_install_failed(self, error_msg: str) -> None:
+        with self._lock:
+            self._installing_ffmpeg = False
+            self._ffmpeg_cancel_event = None
+            self._active_workers.pop("ffmpeg_install", None)
+        self.signals.ffmpeg_install_failed.emit(error_msg)
+        self.signals.dependencies_changed.emit()
 
     def update_settings(self, new_settings: AppSettings) -> AppSettings:
         """Persist updated settings, adjust concurrency, and emit settings_changed."""
@@ -454,6 +500,8 @@ class DownloadManager(QObject):
         with self._lock:
             for ev in self._cancel_events.values():
                 ev.set()
+            if self._ffmpeg_cancel_event is not None:
+                self._ffmpeg_cancel_event.set()
         for job in self._queue.list_jobs():
             if job.status in {DownloadStatus.QUEUED, DownloadStatus.WAITING, DownloadStatus.PAUSED}:
                 self.cancel_job(job.job_id)
