@@ -1,16 +1,16 @@
-# Link Downloader
+# Prism Link Downloader
 
 [![GitHub Release](https://img.shields.io/github/v/release/livelyfun/link-downloader?style=flat-square&logo=github)](https://github.com/livelyfun/link-downloader/releases/latest)
 
 **Cross-platform native Python desktop downloader built with PySide6 (Qt 6 Widgets), `yt-dlp`, `httpx`, and SQLite.**
 
-Link Downloader replaces the previous Debian-only Electron/React application ("YT Downloader") with a zero-Electron, pure-Python desktop application for **Windows 10/11**, **macOS (Apple Silicon & Intel)**, and **Linux (Ubuntu, Debian, Linux Mint, Fedora, Arch, and derivatives)**.
+Prism Link Downloader replaces the previous Debian-only Electron/React application ("YT Downloader") with a zero-Electron, pure-Python desktop application for **Windows 10/11**, **macOS (Apple Silicon & Intel)**, and **Linux (Ubuntu, Debian, Linux Mint, Fedora, Arch, and derivatives)**.
 
 ---
 
 ## 1. Overview
 
-Link Downloader inspects submitted URLs through a centralized capability resolver before starting any transfer:
+Prism Link Downloader inspects submitted URLs through a centralized capability resolver before starting any transfer:
 
 - **Supported video & audio platforms** (YouTube, Vimeo, Dailymotion, SoundCloud, and the full maintained `yt-dlp` extractor catalog) are probed via the `yt-dlp` Python API (`yt_dlp.YoutubeDL`), presenting only formats genuinely reported by the source.
 - **Direct HTTP/HTTPS files** (`.mp4`, `.webm`, `.mp3`, `.pdf`, `.zip`, images, archives, installers, and extensionless downloads with reliable `Content-Type` / `Content-Disposition` metadata) are streamed directly to `.part` files using `httpx` without loading large payloads into memory.
@@ -155,7 +155,7 @@ python scripts/dev.py
 ## 9. FFmpeg Setup
 
 - `FfmpegService` inspects system `PATH`, common OS installation directories (`/usr/bin`, `/opt/homebrew/bin`, `C:\ffmpeg\bin`, `%LOCALAPPDATA%\Programs\ffmpeg\bin`), and bundled assets alongside the packaged executable (`ffmpeg/`, `bin/`).
-- If FFmpeg is absent, Link Downloader displays a non-blocking warning banner, allows pre-merged single-file and direct HTTP downloads, and disables or cleanly warns when choosing formats that require muxing or MP3 transcoding.
+- If FFmpeg is absent, Prism Link Downloader displays a non-blocking warning banner, allows pre-merged single-file and direct HTTP downloads, and disables or cleanly warns when choosing formats that require muxing or MP3 transcoding.
 
 ---
 
@@ -241,4 +241,4 @@ On startup, `LegacyMigrationService` inspects `~/.config/yt-downloader/` (withou
 
 - Native Windows (`.exe`/`.zip`) and macOS (`.app`/`.dmg`) binaries cannot be compiled locally on Linux and are built natively on Windows/macOS runners via GitHub Actions; Authenticode and Apple notarization require repository signing secrets and are left unsigned by default.
 - `.rpm` binary emission requires `rpmbuild` on the build host; when absent, the `.spec` file is generated alongside the standalone bundle.
-- Use Link Downloader strictly in compliance with applicable copyright laws, website terms of service, and creator permissions. Only download content you own, have explicit permission to save, or that is legally permitted for offline access.
+- Use Prism Link Downloader strictly in compliance with applicable copyright laws, website terms of service, and creator permissions. Only download content you own, have explicit permission to save, or that is legally permitted for offline access.

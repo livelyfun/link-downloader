@@ -77,7 +77,7 @@ class DiagnosticDialog(QDialog):
         f_text_col = QVBoxLayout()
         f_text_col.setSpacing(2)
         self.ffmpeg_title = QLabel("FFmpeg Recommended")
-        self.ffmpeg_title.setStyleSheet("font-weight: 700; color: #fbbf24;")
+        self.ffmpeg_title.setStyleSheet("font-weight: 700; color: #b45309;")
         self.ffmpeg_desc = QLabel(
             "FFmpeg is recommended for merging high-quality video and converting audio."
         )

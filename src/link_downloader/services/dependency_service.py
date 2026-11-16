@@ -74,7 +74,7 @@ def _pkg_version(dist_name: str) -> str | None:
 
 def _pkg_location() -> str:
     if getattr(sys, "frozen", False):
-        return "Bundled inside Link Downloader"
+        return "Bundled inside Prism Link Downloader"
     return "Built-in application component"
 
 
@@ -191,7 +191,7 @@ class DependencyService:
                 version=pyside_ver,
                 path=pkg_loc if pyside_ver is not None else None,
                 impact="Provides the native desktop window and interface.",
-                install_hint="Included with Link Downloader.",
+                install_hint="Included with Prism Link Downloader.",
                 verify_command="Checked automatically",
             ),
             DependencyStatus(
@@ -201,7 +201,7 @@ class DependencyService:
                 version=httpx_ver,
                 path=pkg_loc if httpx_ver is not None else None,
                 impact="Downloads direct files and links reliably.",
-                install_hint="Included with Link Downloader.",
+                install_hint="Included with Prism Link Downloader.",
                 verify_command="Checked automatically",
             ),
             DependencyStatus(
@@ -211,7 +211,7 @@ class DependencyService:
                 version=ytdlp_ver,
                 path=pkg_loc if ytdlp_ver is not None else None,
                 impact="Finds video and audio formats from supported websites.",
-                install_hint="Included with Link Downloader.",
+                install_hint="Included with Prism Link Downloader.",
                 verify_command="Checked automatically",
             ),
             DependencyStatus(
@@ -221,7 +221,7 @@ class DependencyService:
                 version=ejs_ver,
                 path=pkg_loc if ejs_ver is not None else None,
                 impact="Built-in helper for modern YouTube video extraction.",
-                install_hint="Included with Link Downloader.",
+                install_hint="Included with Prism Link Downloader.",
                 verify_command="Checked automatically",
             ),
             DependencyStatus(
@@ -251,7 +251,7 @@ class DependencyService:
                 version=js_version,
                 path=js_path,
                 impact="Optional system runtime for complex web player challenges.",
-                install_hint="Optional — Link Downloader already includes built-in YouTube support (yt-dlp-ejs).",
+                install_hint="Optional — Prism Link Downloader already includes built-in YouTube support (yt-dlp-ejs).",
                 verify_command="Checked automatically",
             ),
         ]

@@ -1,11 +1,13 @@
-"""URL input card supporting drag-and-drop, clipboard paste, clear, and syntax validation."""
+"""Responsive neumorphic URL command card supporting Quick Download and Inspect."""
 
 from __future__ import annotations
 
 from PySide6.QtCore import Signal
-from PySide6.QtGui import QDragEnterEvent, QDropEvent
+from PySide6.QtGui import QDragEnterEvent, QDropEvent, QResizeEvent
 from PySide6.QtWidgets import (
     QApplication,
+    QBoxLayout,
+    QComboBox,
     QFrame,
     QHBoxLayout,
     QLabel,
@@ -21,9 +23,10 @@ from link_downloader.ui.styles.theme import make_icon
 
 
 class UrlInputCard(QFrame):
-    """Central URL entry area with validation feedback and link-type status badge."""
+    """Responsive URL command bar with preset picker, Inspect, and Quick Download."""
 
     analyze_requested = Signal(str)
+    quick_download_requested = Signal(str, str)
     cleared = Signal()
 
     def __init__(self, *, allow_private: bool = False, parent=None) -> None:
@@ -34,73 +37,127 @@ class UrlInputCard(QFrame):
         self._loading = False
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(18, 16, 18, 16)
+        layout.setContentsMargins(16, 14, 16, 14)
         layout.setSpacing(10)
 
-        header = QHBoxLayout()
-        icon_lbl = QLabel()
-        icon_lbl.setPixmap(make_icon("link", "#818cf8", 18).pixmap(18, 18))
-        header.addWidget(icon_lbl)
-
-        title = QLabel("Download from any supported URL or direct file link")
-        title.setStyleSheet("font-size: 14px; font-weight: 600;")
-        header.addWidget(title)
-        header.addStretch()
-
-        self.engine_badge = QLabel("Ready")
-        self.engine_badge.setObjectName("BadgeInfo")
-        self.engine_badge.setVisible(False)
-        header.addWidget(self.engine_badge)
-        layout.addLayout(header)
-
+        # Row 1: URL input + Paste + Clear
         input_row = QHBoxLayout()
         input_row.setSpacing(8)
 
+        link_icon = QLabel()
+        link_icon.setPixmap(make_icon("link", "#2563eb", 16).pixmap(16, 16))
+        input_row.addWidget(link_icon)
+
         self.url_input = QLineEdit()
         self.url_input.setPlaceholderText(
-            "Paste or drop a URL (YouTube, Vimeo, SoundCloud, direct .mp4/.pdf/.zip, or webpage)..."
+            "Paste or drop any link (YouTube, Vimeo, SoundCloud, direct .mp4/.pdf/.zip, or webpage)..."
         )
-        self.url_input.setMinimumHeight(40)
+        self.url_input.setMinimumHeight(36)
         self.url_input.setClearButtonEnabled(False)
         self.url_input.textChanged.connect(self._on_text_changed)
         self.url_input.returnPressed.connect(self._trigger_analyze)
         input_row.addWidget(self.url_input, 1)
 
-        self.clear_btn = QPushButton("Clear")
+        self.paste_btn = QPushButton("Paste")
+        self.paste_btn.setObjectName("GhostButton")
+        self.paste_btn.setIcon(make_icon("paste", "#475569", 14))
+        self.paste_btn.setToolTip("Paste URL from clipboard (Ctrl+V)")
+        self.paste_btn.setMinimumHeight(36)
+        self.paste_btn.clicked.connect(self.paste_from_clipboard)
+        input_row.addWidget(self.paste_btn)
+
+        self.clear_btn = QPushButton()
         self.clear_btn.setObjectName("GhostButton")
-        self.clear_btn.setIcon(make_icon("clear", "#94a3b8", 16))
-        self.clear_btn.setToolTip("Clear URL and reset preview")
-        self.clear_btn.setMinimumHeight(40)
+        self.clear_btn.setIcon(make_icon("clear", "#475569", 14))
+        self.clear_btn.setToolTip("Clear URL and dismiss preview")
+        self.clear_btn.setMinimumHeight(36)
+        self.clear_btn.setFixedWidth(38)
         self.clear_btn.clicked.connect(self.clear_all)
         self.clear_btn.setEnabled(False)
         input_row.addWidget(self.clear_btn)
 
-        self.paste_btn = QPushButton("Paste")
-        self.paste_btn.setObjectName("GhostButton")
-        self.paste_btn.setIcon(make_icon("paste", "#cbd5e1", 16))
-        self.paste_btn.setToolTip("Paste URL from clipboard")
-        self.paste_btn.setMinimumHeight(40)
-        self.paste_btn.clicked.connect(self.paste_from_clipboard)
-        input_row.addWidget(self.paste_btn)
+        layout.addLayout(input_row)
 
-        self.analyze_btn = QPushButton("Analyze")
-        self.analyze_btn.setObjectName("PrimaryButton")
-        self.analyze_btn.setIcon(make_icon("search", "#ffffff", 16))
-        self.analyze_btn.setToolTip("Analyze URL and detect available formats or file details")
-        self.analyze_btn.setMinimumHeight(40)
+        # Row 2: Preset selector + Inspect + Quick Download (responsive)
+        self._ctrl_box = QBoxLayout(QBoxLayout.Direction.LeftToRight)
+        self._ctrl_box.setSpacing(8)
+
+        preset_row = QHBoxLayout()
+        preset_row.setSpacing(6)
+        self._preset_lbl = QLabel("Quick Preset:")
+        self._preset_lbl.setObjectName("MutedLabel")
+        preset_row.addWidget(self._preset_lbl)
+
+        self.preset_combo = QComboBox()
+        self.preset_combo.addItem("Best Quality", "best")
+        self.preset_combo.addItem("1080p HD", "1080p")
+        self.preset_combo.addItem("720p HD", "720p")
+        self.preset_combo.addItem("480p SD", "480p")
+        self.preset_combo.addItem("Audio Only (MP3)", "audio")
+        self.preset_combo.setMinimumHeight(32)
+        preset_row.addWidget(self.preset_combo)
+        preset_row.addStretch()
+        self._ctrl_box.addLayout(preset_row, 1)
+
+        btns_row = QHBoxLayout()
+        btns_row.setSpacing(8)
+        self.analyze_btn = QPushButton("Inspect Formats")
+        self.analyze_btn.setObjectName("GhostButton")
+        self.analyze_btn.setIcon(make_icon("sliders", "#475569", 14))
+        self.analyze_btn.setToolTip("Inspect title, formats, and file size before downloading (Enter)")
+        self.analyze_btn.setMinimumHeight(34)
         self.analyze_btn.setEnabled(False)
         self.analyze_btn.clicked.connect(self._trigger_analyze)
-        input_row.addWidget(self.analyze_btn)
+        btns_row.addWidget(self.analyze_btn)
 
-        layout.addLayout(input_row)
+        self.quick_download_btn = QPushButton("Quick Download")
+        self.quick_download_btn.setObjectName("PrimaryButton")
+        self.quick_download_btn.setIcon(make_icon("bolt", "#ffffff", 14))
+        self.quick_download_btn.setToolTip("Download immediately using the selected Quick Preset")
+        self.quick_download_btn.setMinimumHeight(34)
+        self.quick_download_btn.setEnabled(False)
+        self.quick_download_btn.clicked.connect(self._trigger_quick_download)
+        btns_row.addWidget(self.quick_download_btn)
+        self._ctrl_box.addLayout(btns_row)
+
+        layout.addLayout(self._ctrl_box)
+
+        # Row 3: Dedicated validation feedback & detected engine status row (avoids squishing controls)
+        status_row = QHBoxLayout()
+        status_row.setSpacing(8)
+
+        self.engine_badge = QLabel("Ready")
+        self.engine_badge.setObjectName("BadgeInfo")
+        self.engine_badge.setVisible(False)
+        status_row.addWidget(self.engine_badge)
 
         self.feedback_label = QLabel("")
         self.feedback_label.setWordWrap(True)
         self.feedback_label.setVisible(False)
-        layout.addWidget(self.feedback_label)
+        status_row.addWidget(self.feedback_label, 1)
+
+        layout.addLayout(status_row)
+
+    def resizeEvent(self, event: QResizeEvent) -> None:  # noqa: N802
+        super().resizeEvent(event)
+        w = event.size().width()
+        narrow = w < 540
+        self._preset_lbl.setVisible(not narrow)
+        if not self._loading:
+            self.analyze_btn.setText("Inspect" if narrow else "Inspect Formats")
+        direction = (
+            QBoxLayout.Direction.TopToBottom
+            if w < 460
+            else QBoxLayout.Direction.LeftToRight
+        )
+        if self._ctrl_box.direction() != direction:
+            self._ctrl_box.setDirection(direction)
 
     def set_url(self, url: str) -> None:
         self.url_input.setText(url.strip())
+
+    def selected_preset(self) -> str:
+        return str(self.preset_combo.currentData() or "best")
 
     def paste_from_clipboard(self) -> None:
         clipboard = QApplication.clipboard()
@@ -122,8 +179,11 @@ class UrlInputCard(QFrame):
         self._loading = loading
         self.url_input.setEnabled(not loading)
         self.paste_btn.setEnabled(not loading)
+        self.preset_combo.setEnabled(not loading)
         self.clear_btn.setEnabled(not loading and bool(self.url_input.text().strip()))
-        self.analyze_btn.setText("Analyzing..." if loading else "Analyze")
+        narrow = self.width() < 540
+        self.analyze_btn.setText("Inspecting..." if loading else ("Inspect" if narrow else "Inspect Formats"))
+        self.quick_download_btn.setText("Resolving..." if loading else "Quick Download")
         self._update_button_state()
 
     def set_error(self, message: str) -> None:
@@ -158,7 +218,7 @@ class UrlInputCard(QFrame):
             self.feedback_label.setObjectName("MutedLabel")
             self.feedback_label.style().unpolish(self.feedback_label)
             self.feedback_label.style().polish(self.feedback_label)
-            self.feedback_label.setText("Valid HTTP/HTTPS URL — press Enter or click Analyze.")
+            self.feedback_label.setText("Valid HTTP/HTTPS URL — press Enter to inspect or click Quick Download.")
             self.feedback_label.setVisible(True)
         except ValidationError as exc:
             self.feedback_label.setObjectName("ErrorLabel")
@@ -171,19 +231,20 @@ class UrlInputCard(QFrame):
 
     def _update_button_state(self) -> None:
         stripped = self.url_input.text().strip()
-        if self._loading or not stripped:
-            self.analyze_btn.setEnabled(False)
-            return
-        try:
-            normalize_and_validate_url(stripped, allow_private=self._allow_private, strict_dns=False)
-            self.analyze_btn.setEnabled(True)
-        except ValidationError:
-            self.analyze_btn.setEnabled(False)
+        valid = False
+        if not self._loading and stripped:
+            try:
+                normalize_and_validate_url(stripped, allow_private=self._allow_private, strict_dns=False)
+                valid = True
+            except ValidationError:
+                valid = False
+        self.analyze_btn.setEnabled(valid)
+        self.quick_download_btn.setEnabled(valid)
 
-    def _trigger_analyze(self) -> None:
+    def _validate_current(self) -> str | None:
         stripped = self.url_input.text().strip()
         if not stripped or self._loading:
-            return
+            return None
         try:
             normalized = normalize_and_validate_url(
                 stripped,
@@ -192,9 +253,19 @@ class UrlInputCard(QFrame):
             )
         except ValidationError as exc:
             self.set_error(exc.message)
-            return
+            return None
         self.feedback_label.setVisible(False)
-        self.analyze_requested.emit(normalized)
+        return normalized
+
+    def _trigger_analyze(self) -> None:
+        normalized = self._validate_current()
+        if normalized is not None:
+            self.analyze_requested.emit(normalized)
+
+    def _trigger_quick_download(self) -> None:
+        normalized = self._validate_current()
+        if normalized is not None:
+            self.quick_download_requested.emit(normalized, self.selected_preset())
 
     def dragEnterEvent(self, event: QDragEnterEvent) -> None:  # noqa: N802
         mime = event.mimeData()

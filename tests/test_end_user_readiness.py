@@ -96,7 +96,7 @@ def test_bundled_packages_detected_when_frozen_and_dist_info_missing(
     for expected in ("PySide6 (Qt 6)", "HTTPX", "yt-dlp Python API", "yt-dlp-ejs"):
         assert by_name[expected].available is True
         assert by_name[expected].version
-        assert by_name[expected].path == "Bundled inside Link Downloader"
+        assert by_name[expected].path == "Bundled inside Prism Link Downloader"
 
 
 def test_dependency_messages_have_no_cli_or_package_manager_jargon(

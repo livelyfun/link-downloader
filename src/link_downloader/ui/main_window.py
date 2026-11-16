@@ -1,12 +1,13 @@
-"""Main application window with sidebar navigation, banner, stacked pages, and clean shutdown."""
+"""Main desktop application window with responsive neumorphic sidebar and workspaces."""
 
 from __future__ import annotations
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QCloseEvent, QIcon, QKeySequence, QShortcut
+from PySide6.QtGui import QCloseEvent, QIcon, QKeySequence, QPixmap, QResizeEvent, QShortcut
 from PySide6.QtWidgets import (
     QApplication,
     QButtonGroup,
+    QFrame,
     QHBoxLayout,
     QLabel,
     QMainWindow,
@@ -17,6 +18,7 @@ from PySide6.QtWidgets import (
 )
 
 from link_downloader import __app_name__, __version__
+from link_downloader.platform.file_actions import open_folder
 from link_downloader.platform.paths import get_app_icon_path
 from link_downloader.services.dependency_service import DependencyService
 from link_downloader.services.download_manager import DownloadManager
@@ -30,12 +32,13 @@ from link_downloader.ui.styles.theme import build_stylesheet, get_theme_palette,
 
 
 class MainWindow(QMainWindow):
-    """Primary Link Downloader desktop window."""
+    """Primary responsive Link Downloader desktop window."""
 
     PAGE_DOWNLOAD = 0
     PAGE_QUEUE = 1
     PAGE_HISTORY = 2
     PAGE_SETTINGS = 3
+    COMPACT_SIDEBAR_BREAKPOINT = 760
 
     def __init__(
         self,
@@ -46,9 +49,12 @@ class MainWindow(QMainWindow):
     ) -> None:
         super().__init__(parent)
         self._manager = manager
+        self._sidebar_compact = False
+        self._pending_count = 0
+
         self.setWindowTitle(__app_name__)
-        self.setMinimumSize(900, 620)
-        self.resize(1140, 780)
+        self.setMinimumSize(640, 480)
+        self.resize(1080, 740)
 
         icon_path = get_app_icon_path()
         if icon_path is not None:
@@ -60,51 +66,59 @@ class MainWindow(QMainWindow):
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
 
-        # Sidebar
+        # Responsive Neumorphic Sidebar
         self.sidebar = QWidget()
         self.sidebar.setObjectName("Sidebar")
-        self.sidebar.setFixedWidth(216)
+        self.sidebar.setFixedWidth(212)
         side_layout = QVBoxLayout(self.sidebar)
-        side_layout.setContentsMargins(14, 18, 14, 16)
+        side_layout.setContentsMargins(12, 16, 12, 14)
         side_layout.setSpacing(6)
 
-        # Brand Header
+        # Sculpted Brand Header
         brand_row = QHBoxLayout()
         brand_row.setSpacing(10)
-        logo_lbl = QLabel("LD")
+
+        logo_lbl = QLabel()
         logo_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        logo_lbl.setFixedSize(34, 34)
-        logo_lbl.setStyleSheet(
-            "background: qlineargradient(x1:0,y1:0,x2:1,y2:1, stop:0 #4f46e5, stop:1 #8b5cf6);"
-            "color: #ffffff; font-weight: 800; font-size: 14px; border-radius: 9px;"
-        )
+        logo_lbl.setFixedSize(36, 36)
+        if icon_path is not None and not QPixmap(str(icon_path)).isNull():
+            pix = QPixmap(str(icon_path)).scaled(
+                34,
+                34,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
+            )
+            logo_lbl.setPixmap(pix)
+        else:
+            logo_lbl.setPixmap(make_icon("brand_logo", "#2563eb", 22).pixmap(22, 22))
         brand_row.addWidget(logo_lbl)
 
-        brand_col = QVBoxLayout()
+        self._brand_col_widget = QWidget()
+        brand_col = QVBoxLayout(self._brand_col_widget)
+        brand_col.setContentsMargins(0, 0, 0, 0)
         brand_col.setSpacing(0)
         brand_name = QLabel(__app_name__)
-        brand_name.setStyleSheet("font-size: 14px; font-weight: 700;")
+        brand_name.setStyleSheet("font-size: 13px; font-weight: 700;")
         brand_ver = QLabel(f"v{__version__}")
         brand_ver.setObjectName("MutedLabel")
         brand_col.addWidget(brand_name)
         brand_col.addWidget(brand_ver)
-        brand_row.addLayout(brand_col)
-        brand_row.addStretch()
+        brand_row.addWidget(self._brand_col_widget, 1)
         side_layout.addLayout(brand_row)
-        side_layout.addSpacing(14)
+        side_layout.addSpacing(12)
 
-        nav_lbl = QLabel("NAVIGATION")
-        nav_lbl.setObjectName("SectionTitle")
-        side_layout.addWidget(nav_lbl)
+        self._nav_section_lbl = QLabel("WORKSPACE")
+        self._nav_section_lbl.setObjectName("SectionTitle")
+        side_layout.addWidget(self._nav_section_lbl)
         side_layout.addSpacing(2)
 
         self._nav_group = QButtonGroup(self)
         self._nav_group.setExclusive(True)
 
-        self.nav_download = self._make_nav_btn("Download", "download", self.PAGE_DOWNLOAD)
-        self.nav_queue = self._make_nav_btn("Queue", "queue", self.PAGE_QUEUE)
-        self.nav_history = self._make_nav_btn("History", "history", self.PAGE_HISTORY)
-        self.nav_settings = self._make_nav_btn("Settings", "settings", self.PAGE_SETTINGS)
+        self.nav_download = self._make_nav_btn("Downloads", "download", self.PAGE_DOWNLOAD, "Ctrl+1")
+        self.nav_queue = self._make_nav_btn("Queue", "queue", self.PAGE_QUEUE, "Ctrl+2")
+        self.nav_history = self._make_nav_btn("History", "history", self.PAGE_HISTORY, "Ctrl+3")
+        self.nav_settings = self._make_nav_btn("Settings", "settings", self.PAGE_SETTINGS, "Ctrl+4")
 
         for btn in (self.nav_download, self.nav_queue, self.nav_history, self.nav_settings):
             self._nav_group.addButton(btn)
@@ -113,10 +127,30 @@ class MainWindow(QMainWindow):
         self.nav_download.setChecked(True)
         side_layout.addStretch()
 
-        self.active_status_label = QLabel("Idle")
-        self.active_status_label.setObjectName("MutedLabel")
-        side_layout.addWidget(self.active_status_label)
+        # Sidebar utility footer card
+        self._status_box = QFrame()
+        self._status_box.setObjectName("StatusBox")
+        sb_lay = QVBoxLayout(self._status_box)
+        sb_lay.setContentsMargins(10, 10, 10, 10)
+        sb_lay.setSpacing(6)
 
+        self.active_status_label = QLabel("Ready · Idle")
+        self.active_status_label.setStyleSheet("font-size: 12px; font-weight: 600;")
+        sb_lay.addWidget(self.active_status_label)
+
+        self.ffmpeg_sidebar_label = QLabel("FFmpeg: Checking...")
+        self.ffmpeg_sidebar_label.setObjectName("MutedLabel")
+        sb_lay.addWidget(self.ffmpeg_sidebar_label)
+
+        self.sidebar_folder_btn = QPushButton("Open Downloads")
+        self.sidebar_folder_btn.setObjectName("GhostButton")
+        self.sidebar_folder_btn.setIcon(make_icon("folder", "#475569", 13))
+        self.sidebar_folder_btn.clicked.connect(
+            lambda: open_folder(self._manager.settings.download_folder)
+        )
+        sb_lay.addWidget(self.sidebar_folder_btn)
+
+        side_layout.addWidget(self._status_box)
         root.addWidget(self.sidebar)
 
         # Main workspace area
@@ -130,7 +164,7 @@ class MainWindow(QMainWindow):
         self.dep_banner.download_ffmpeg_requested.connect(self._on_banner_download_ffmpeg)
         banner_wrap = QWidget()
         banner_lay = QVBoxLayout(banner_wrap)
-        banner_lay.setContentsMargins(24, 14, 24, 0)
+        banner_lay.setContentsMargins(18, 10, 18, 6)
         banner_lay.addWidget(self.dep_banner)
         self._banner_wrap = banner_wrap
         right_layout.addWidget(banner_wrap)
@@ -170,15 +204,46 @@ class MainWindow(QMainWindow):
         self.apply_theme(self._manager.settings.theme)
         self._refresh_dependency_banner()
         self._update_queue_badges()
+        self._apply_responsive_sidebar(self.width())
 
-    def _make_nav_btn(self, label: str, icon_name: str, page_index: int) -> QPushButton:
+    def _make_nav_btn(
+        self, label: str, icon_name: str, page_index: int, shortcut: str
+    ) -> QPushButton:
         btn = QPushButton(f"  {label}")
         btn.setObjectName("NavButton")
         btn.setCheckable(True)
         btn.setProperty("icon_name", icon_name)
-        btn.setIcon(make_icon(icon_name, "#cbd5e1", 18))
+        btn.setProperty("full_label", label)
+        btn.setToolTip(f"{label} ({shortcut})")
+        btn.setIcon(make_icon(icon_name, "#475569", 16))
         btn.clicked.connect(lambda: self.navigate_to(page_index))
         return btn
+
+    def _apply_responsive_sidebar(self, win_width: int) -> None:
+        compact = win_width < self.COMPACT_SIDEBAR_BREAKPOINT
+        if compact == self._sidebar_compact and self.sidebar.width() in (68, 212):
+            return
+        self._sidebar_compact = compact
+        self.sidebar.setFixedWidth(68 if compact else 212)
+        self._brand_col_widget.setVisible(not compact)
+        self._nav_section_lbl.setVisible(not compact)
+        self._status_box.setVisible(not compact)
+        self._refresh_nav_button_labels()
+
+    def _refresh_nav_button_labels(self) -> None:
+        for btn in (self.nav_download, self.nav_queue, self.nav_history, self.nav_settings):
+            if self._sidebar_compact:
+                btn.setText("")
+            else:
+                base = str(btn.property("full_label") or "")
+                if btn is self.nav_queue and self._pending_count > 0:
+                    btn.setText(f"  {base} ({self._pending_count})")
+                else:
+                    btn.setText(f"  {base}")
+
+    def resizeEvent(self, event: QResizeEvent) -> None:  # noqa: N802
+        super().resizeEvent(event)
+        self._apply_responsive_sidebar(event.size().width())
 
     def navigate_to(self, page_index: int) -> None:
         self.stack.setCurrentIndex(page_index)
@@ -205,6 +270,19 @@ class MainWindow(QMainWindow):
         self.dep_banner.update_statuses(missing)
         self._banner_wrap.setVisible(not self.dep_banner.isHidden())
 
+        ffmpeg_ok = any(d.name == "FFmpeg" and d.available for d in statuses)
+        if self._manager.is_installing_ffmpeg():
+            self.ffmpeg_sidebar_label.setText("FFmpeg: Downloading...")
+            self.ffmpeg_sidebar_label.setObjectName("MutedLabel")
+        elif ffmpeg_ok:
+            self.ffmpeg_sidebar_label.setText("FFmpeg: Ready")
+            self.ffmpeg_sidebar_label.setObjectName("SuccessLabel")
+        else:
+            self.ffmpeg_sidebar_label.setText("FFmpeg: Not Installed")
+            self.ffmpeg_sidebar_label.setObjectName("MutedLabel")
+        self.ffmpeg_sidebar_label.style().unpolish(self.ffmpeg_sidebar_label)
+        self.ffmpeg_sidebar_label.style().polish(self.ffmpeg_sidebar_label)
+
     def _on_banner_download_ffmpeg(self) -> None:
         self.dep_banner.set_installing(True, 0, "Downloading FFmpeg...")
         self._banner_wrap.setVisible(not self.dep_banner.isHidden())
@@ -213,10 +291,12 @@ class MainWindow(QMainWindow):
     def _on_ffmpeg_banner_progress(self, percent: int, message: str) -> None:
         self.dep_banner.set_installing(True, percent, message)
         self._banner_wrap.setVisible(not self.dep_banner.isHidden())
+        self.ffmpeg_sidebar_label.setText(f"FFmpeg: {percent}%")
 
     def _on_ffmpeg_banner_failed(self, error_msg: str) -> None:
         self.dep_banner.set_error(error_msg)
         self._banner_wrap.setVisible(not self.dep_banner.isHidden())
+        self.ffmpeg_sidebar_label.setText("FFmpeg: Not Installed")
 
     def prompt_ffmpeg_if_missing(self) -> bool:
         """Show the optional FFmpeg setup dialog if FFmpeg is not installed yet."""
@@ -229,14 +309,14 @@ class MainWindow(QMainWindow):
         jobs = self._manager.list_jobs()
         active = sum(1 for j in jobs if j.status.is_active)
         waiting = sum(1 for j in jobs if j.status.value in ("queued", "waiting", "paused"))
-        pending = active + waiting
-        self.nav_queue.setText(f"  Queue ({pending})" if pending > 0 else "  Queue")
+        self._pending_count = active + waiting
+        self._refresh_nav_button_labels()
         if active > 0:
-            self.active_status_label.setText(f"{active} downloading · {waiting} waiting")
+            self.active_status_label.setText(f"{active} active · {waiting} waiting")
         elif waiting > 0:
             self.active_status_label.setText(f"{waiting} queued / paused")
         else:
-            self.active_status_label.setText("Ready · Local Mode")
+            self.active_status_label.setText("Ready · Idle")
 
     def apply_theme(self, theme_mode: str) -> None:
         app = QApplication.instance()
@@ -245,7 +325,7 @@ class MainWindow(QMainWindow):
         palette = get_theme_palette(theme_mode)
         for btn in (self.nav_download, self.nav_queue, self.nav_history, self.nav_settings):
             icon_name = str(btn.property("icon_name") or "link")
-            btn.setIcon(make_icon(icon_name, palette["icon"], 18))
+            btn.setIcon(make_icon(icon_name, palette["icon"], 16))
 
     def closeEvent(self, event: QCloseEvent) -> None:  # noqa: N802
         self._manager.shutdown()

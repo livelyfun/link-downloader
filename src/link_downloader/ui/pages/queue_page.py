@@ -1,11 +1,14 @@
-"""Download Queue page managing multiple concurrent, paused, and queued jobs."""
+"""Responsive Download Queue page managing concurrent, paused, queued, and paginated jobs."""
 
 from __future__ import annotations
 
 from dataclasses import replace
 
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QResizeEvent
 from PySide6.QtWidgets import (
+    QBoxLayout,
+    QFrame,
     QHBoxLayout,
     QLabel,
     QPushButton,
@@ -21,64 +24,82 @@ from link_downloader.platform.file_actions import open_file, reveal_in_file_mana
 from link_downloader.services.download_manager import DownloadManager
 from link_downloader.ui.components.download_item_card import DownloadItemCard
 from link_downloader.ui.components.empty_state import EmptyStateWidget
+from link_downloader.ui.components.pagination_bar import PaginationBar
 
 
 class QueuePage(QWidget):
-    """Displays all queued, active, paused, completed, failed, and cancelled downloads."""
+    """Displays queued, active, paused, completed, failed, and cancelled downloads with pagination."""
 
     def __init__(self, manager: DownloadManager, parent=None) -> None:
         super().__init__(parent)
         self._manager = manager
         self._cards: dict[str, DownloadItemCard] = {}
+        self._job_order: list[str] = []
 
         root = QVBoxLayout(self)
-        root.setContentsMargins(24, 22, 24, 20)
-        root.setSpacing(14)
+        root.setContentsMargins(0, 0, 0, 0)
+        root.setSpacing(0)
 
-        # Header + controls
-        header = QHBoxLayout()
-        header.setSpacing(10)
-        title = QLabel("Download Queue")
+        # Responsive desktop toolbar
+        toolbar = QFrame()
+        toolbar.setObjectName("Toolbar")
+        self._toolbar_box = QBoxLayout(QBoxLayout.Direction.LeftToRight, toolbar)
+        self._toolbar_box.setContentsMargins(20, 10, 20, 10)
+        self._toolbar_box.setSpacing(8)
+
+        title_row = QHBoxLayout()
+        title_row.setSpacing(8)
+        title = QLabel("Queue")
         title.setObjectName("PageTitle")
-        header.addWidget(title)
+        title_row.addWidget(title)
 
         self.summary_label = QLabel("0 items")
         self.summary_label.setObjectName("MutedLabel")
-        header.addWidget(self.summary_label)
-        header.addStretch()
+        title_row.addWidget(self.summary_label)
+        title_row.addStretch()
+        self._toolbar_box.addLayout(title_row, 1)
 
-        conc_lbl = QLabel("Max concurrent:")
+        controls_row = QHBoxLayout()
+        controls_row.setSpacing(6)
+        conc_lbl = QLabel("Concurrent:")
         conc_lbl.setObjectName("MutedLabel")
-        header.addWidget(conc_lbl)
+        controls_row.addWidget(conc_lbl)
 
         self.concurrency_spin = QSpinBox()
         self.concurrency_spin.setRange(MIN_CONCURRENT_DOWNLOADS, MAX_CONCURRENT_DOWNLOADS)
         self.concurrency_spin.setValue(self._manager.settings.concurrent_downloads)
         self.concurrency_spin.setToolTip("Maximum simultaneous downloads")
         self.concurrency_spin.valueChanged.connect(self._on_concurrency_changed)
-        header.addWidget(self.concurrency_spin)
+        controls_row.addWidget(self.concurrency_spin)
 
         self.retry_failed_btn = QPushButton("Retry Failed")
         self.retry_failed_btn.setObjectName("GhostButton")
         self.retry_failed_btn.clicked.connect(self._manager.retry_all_failed)
-        header.addWidget(self.retry_failed_btn)
+        controls_row.addWidget(self.retry_failed_btn)
 
-        self.clear_finished_btn = QPushButton("Remove Finished")
+        self.clear_finished_btn = QPushButton("Clear Finished")
         self.clear_finished_btn.setObjectName("GhostButton")
         self.clear_finished_btn.clicked.connect(self._manager.remove_completed)
-        header.addWidget(self.clear_finished_btn)
+        controls_row.addWidget(self.clear_finished_btn)
 
         self.cancel_all_btn = QPushButton("Cancel All")
         self.cancel_all_btn.setObjectName("DangerButton")
         self.cancel_all_btn.clicked.connect(self._manager.cancel_all)
-        header.addWidget(self.cancel_all_btn)
+        controls_row.addWidget(self.cancel_all_btn)
+        controls_row.addStretch(0)
+        self._toolbar_box.addLayout(controls_row)
 
-        root.addLayout(header)
+        root.addWidget(toolbar)
+
+        body = QWidget()
+        body_lay = QVBoxLayout(body)
+        body_lay.setContentsMargins(20, 14, 20, 14)
+        body_lay.setSpacing(10)
 
         # Scroll area
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
-        root.addWidget(scroll, 1)
+        body_lay.addWidget(scroll, 1)
 
         content = QWidget()
         content.setObjectName("ScrollContent")
@@ -86,7 +107,7 @@ class QueuePage(QWidget):
 
         self._list_layout = QVBoxLayout(content)
         self._list_layout.setContentsMargins(0, 0, 6, 0)
-        self._list_layout.setSpacing(10)
+        self._list_layout.setSpacing(8)
         self._list_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
         self.empty_state = EmptyStateWidget(
@@ -96,11 +117,31 @@ class QueuePage(QWidget):
         )
         self._list_layout.addWidget(self.empty_state)
 
+        self.pagination_bar = PaginationBar(
+            default_page_size=10,
+            page_size_options=(5, 10, 25, 50),
+        )
+        self.pagination_bar.page_changed.connect(lambda _p: self._apply_pagination())
+        self.pagination_bar.page_size_changed.connect(lambda _s: self._apply_pagination())
+        body_lay.addWidget(self.pagination_bar)
+
+        root.addWidget(body, 1)
+
         self._manager.signals.job_added.connect(self._on_job_added)
         self._manager.signals.job_updated.connect(self._on_job_updated)
         self._manager.signals.queue_changed.connect(self.refresh)
         self._manager.signals.settings_changed.connect(self._on_settings_changed)
         self.refresh()
+
+    def resizeEvent(self, event: QResizeEvent) -> None:  # noqa: N802
+        super().resizeEvent(event)
+        direction = (
+            QBoxLayout.Direction.TopToBottom
+            if event.size().width() < 680
+            else QBoxLayout.Direction.LeftToRight
+        )
+        if self._toolbar_box.direction() != direction:
+            self._toolbar_box.setDirection(direction)
 
     def _on_settings_changed(self, settings) -> None:
         if self.concurrency_spin.value() != settings.concurrent_downloads:
@@ -114,6 +155,7 @@ class QueuePage(QWidget):
 
     def _on_job_added(self, job: DownloadJob) -> None:
         self._create_or_update_card(job)
+        self._apply_pagination()
         self._update_summary()
 
     def _on_job_updated(self, job: DownloadJob) -> None:
@@ -135,8 +177,16 @@ class QueuePage(QWidget):
             lambda fp: reveal_in_file_manager(fp, self._manager.settings.download_folder)
         )
         self._cards[job.job_id] = card
+        self._job_order.insert(0, job.job_id)
         self._list_layout.insertWidget(0, card)
         self.empty_state.setVisible(False)
+
+    def _apply_pagination(self) -> None:
+        self.pagination_bar.set_total_items(len(self._job_order))
+        start, end = self.pagination_bar.current_range(len(self._job_order))
+        visible_ids = set(self._job_order[start:end])
+        for jid, card in self._cards.items():
+            card.setVisible(jid in visible_ids)
 
     def refresh(self) -> None:
         jobs = self._manager.list_jobs()
@@ -146,11 +196,13 @@ class QueuePage(QWidget):
                 card = self._cards.pop(stale_id)
                 self._list_layout.removeWidget(card)
                 card.deleteLater()
+        self._job_order = [jid for jid in self._job_order if jid in current_ids]
 
         for job in jobs:
             self._create_or_update_card(job)
 
         self.empty_state.setVisible(len(jobs) == 0)
+        self._apply_pagination()
         self._update_summary()
 
     def _update_summary(self) -> None:

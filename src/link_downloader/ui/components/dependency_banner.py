@@ -3,7 +3,16 @@
 from __future__ import annotations
 
 from PySide6.QtCore import Signal
-from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QVBoxLayout
+from PySide6.QtGui import QResizeEvent
+from PySide6.QtWidgets import (
+    QBoxLayout,
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QSizePolicy,
+    QVBoxLayout,
+)
 
 from link_downloader.core.models import DependencyStatus
 from link_downloader.ui.styles.theme import make_icon
@@ -20,41 +29,60 @@ class DependencyBanner(QFrame):
         self.setObjectName("BannerWarning")
         self.setVisible(False)
 
-        root = QHBoxLayout(self)
-        root.setContentsMargins(14, 10, 14, 10)
-        root.setSpacing(12)
+        self._root_box = QBoxLayout(QBoxLayout.Direction.LeftToRight, self)
+        self._root_box.setContentsMargins(14, 10, 14, 10)
+        self._root_box.setSpacing(10)
 
+        msg_row = QHBoxLayout()
+        msg_row.setSpacing(10)
         icon_lbl = QLabel()
-        icon_lbl.setPixmap(make_icon("warning", "#fbbf24", 20).pixmap(20, 20))
-        root.addWidget(icon_lbl)
+        icon_lbl.setPixmap(make_icon("warning", "#b45309", 20).pixmap(20, 20))
+        msg_row.addWidget(icon_lbl)
 
         text_col = QVBoxLayout()
         text_col.setSpacing(2)
         self._title = QLabel("FFmpeg is not installed yet")
-        self._title.setStyleSheet("font-weight: 600; color: #fbbf24;")
+        self._title.setStyleSheet("font-weight: 600; color: #b45309;")
+        self._title.setWordWrap(True)
         self._detail = QLabel("")
         self._detail.setObjectName("MutedLabel")
         self._detail.setWordWrap(True)
+        self._detail.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
         text_col.addWidget(self._title)
         text_col.addWidget(self._detail)
-        root.addLayout(text_col, 1)
+        msg_row.addLayout(text_col, 1)
+        self._root_box.addLayout(msg_row, 1)
 
+        btns_row = QHBoxLayout()
+        btns_row.setSpacing(8)
         self.download_ffmpeg_btn = QPushButton("Download FFmpeg")
         self.download_ffmpeg_btn.setObjectName("PrimaryButton")
         self.download_ffmpeg_btn.setIcon(make_icon("download", "#ffffff", 14))
         self.download_ffmpeg_btn.clicked.connect(self.download_ffmpeg_requested.emit)
         self.download_ffmpeg_btn.setVisible(False)
-        root.addWidget(self.download_ffmpeg_btn)
+        btns_row.addWidget(self.download_ffmpeg_btn)
 
         self._inspect_btn = QPushButton("Details")
         self._inspect_btn.setObjectName("GhostButton")
         self._inspect_btn.clicked.connect(self.inspect_requested.emit)
-        root.addWidget(self._inspect_btn)
+        btns_row.addWidget(self._inspect_btn)
 
         self._dismiss_btn = QPushButton("Dismiss")
         self._dismiss_btn.setObjectName("GhostButton")
         self._dismiss_btn.clicked.connect(self.hide)
-        root.addWidget(self._dismiss_btn)
+        btns_row.addWidget(self._dismiss_btn)
+        btns_row.addStretch(0)
+        self._root_box.addLayout(btns_row)
+
+    def resizeEvent(self, event: QResizeEvent) -> None:  # noqa: N802
+        super().resizeEvent(event)
+        direction = (
+            QBoxLayout.Direction.TopToBottom
+            if event.size().width() < 560
+            else QBoxLayout.Direction.LeftToRight
+        )
+        if self._root_box.direction() != direction:
+            self._root_box.setDirection(direction)
 
     def update_statuses(self, missing: list[DependencyStatus]) -> None:
         if not missing:

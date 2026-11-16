@@ -15,7 +15,7 @@ from link_downloader.services.migration_service import LegacyMigrationService
 def test_settings_load_save_and_clamp(settings_manager: SettingsManager) -> None:
     assert not settings_manager.exists()
     defaults = settings_manager.load()
-    assert defaults.theme == ThemeMode.DARK.value
+    assert defaults.theme == ThemeMode.LIGHT.value
 
     custom = AppSettings(
         download_folder="/tmp/custom-dl",

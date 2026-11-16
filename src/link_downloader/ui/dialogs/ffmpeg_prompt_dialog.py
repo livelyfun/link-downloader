@@ -53,7 +53,7 @@ class FfmpegPromptDialog(QDialog):
         text_col.addWidget(self.message_label)
 
         sub_note = QLabel(
-            "Link Downloader can download FFmpeg automatically into your app folder—no extra setup needed."
+            "Prism Link Downloader can download FFmpeg automatically into your app folder—no extra setup needed."
         )
         sub_note.setObjectName("MutedLabel")
         sub_note.setWordWrap(True)

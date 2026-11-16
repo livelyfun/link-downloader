@@ -231,6 +231,51 @@ def test_analyze_ytdlp_media_and_format_filters(
     qtbot.mouseClick(all_btn, Qt.MouseButton.LeftButton)
     assert preview.format_list.count() == all_count
 
+    # Collapse inspector via close button
+    qtbot.mouseClick(preview.close_btn, Qt.MouseButton.LeftButton)
+    assert preview.isVisible() is False
+
+
+def test_quick_download_direct_http_without_manual_format_pick(
+    qtbot,
+    app_window,
+    gui_http_url: str,
+    isolated_app_dirs: Path,
+) -> None:
+    window, manager = app_window
+    url_card = window.download_page.url_card
+
+    url_card.url_input.setText(f"{gui_http_url}/manual.pdf")
+    qtbot.mouseClick(url_card.quick_download_btn, Qt.MouseButton.LeftButton)
+    qtbot.waitUntil(
+        lambda: bool(manager.list_jobs())
+        and manager.list_jobs()[0].status is DownloadStatus.COMPLETED,
+        timeout=5000,
+    )
+    assert (isolated_app_dirs / "downloads" / "manual.pdf").exists()
+
+
+def test_responsive_sidebar_and_preview_stacking(
+    qtbot,
+    app_window,
+) -> None:
+    window, _manager = app_window
+
+    # Wide desktop width uses full sidebar
+    window.resize(1040, 720)
+    QApplication.processEvents()
+    qtbot.waitUntil(lambda: window.sidebar.width() == 212, timeout=2000)
+
+    # Compact width collapses sidebar to icon rail cleanly
+    window.resize(660, 520)
+    QApplication.processEvents()
+    qtbot.waitUntil(lambda: window.sidebar.width() == 68, timeout=2000)
+
+    # Expanding restores full sidebar labels
+    window.resize(980, 700)
+    QApplication.processEvents()
+    qtbot.waitUntil(lambda: window.sidebar.width() == 212, timeout=2000)
+
 
 def test_queue_page_concurrency_and_history_search_clear(
     qtbot,
@@ -312,3 +357,56 @@ def test_settings_persistence_and_theme_toggle(
     assert Path(manager.settings.download_folder) == custom_dir
     assert custom_dir.is_dir()
     assert settings_page.saved_badge.isVisible() is True
+
+
+def test_history_pagination_and_narrow_responsive_pages(
+    qtbot,
+    app_window,
+) -> None:
+    window, manager = app_window
+
+    # Seed 12 history items (default page size = 10 -> 2 pages)
+    for idx in range(12):
+        manager.history_repo.upsert_entry(
+            HistoryEntry(
+                id=f"pag-{idx:02d}",
+                url=f"https://example.com/video/{idx}",
+                platform="YouTube",
+                title=f"Sample Clip {idx:02d}",
+                filename=f"clip_{idx:02d}.mp4",
+                status=DownloadStatus.COMPLETED.value,
+            )
+        )
+
+    qtbot.mouseClick(window.nav_history, Qt.MouseButton.LeftButton)
+    window.history_page.refresh()
+
+    pbar = window.history_page.pagination_bar
+    assert pbar.isVisible() is True
+    assert pbar.total_pages == 2
+    assert pbar.current_page == 1
+    assert pbar.info_label.text() == "Showing 1-10 of 12"
+
+    # Navigate to page 2
+    qtbot.mouseClick(pbar.next_btn, Qt.MouseButton.LeftButton)
+    assert pbar.current_page == 2
+    assert pbar.info_label.text() == "Showing 11-12 of 12"
+
+    # Navigate back to page 1
+    qtbot.mouseClick(pbar.prev_btn, Qt.MouseButton.LeftButton)
+    assert pbar.current_page == 1
+
+    # Switch page size to 5 -> 3 pages
+    idx_5 = pbar.page_size_combo.findData(5)
+    assert idx_5 >= 0
+    pbar.page_size_combo.setCurrentIndex(idx_5)
+    assert pbar.total_pages == 3
+    assert pbar.info_label.text() == "Showing 1-5 of 12"
+
+    # Exercise narrow viewport (640x480) across all pages cleanly
+    window.resize(640, 480)
+    QApplication.processEvents()
+    for nav_btn in (window.nav_download, window.nav_queue, window.nav_history, window.nav_settings):
+        qtbot.mouseClick(nav_btn, Qt.MouseButton.LeftButton)
+        QApplication.processEvents()
+    assert window.sidebar.width() == 68

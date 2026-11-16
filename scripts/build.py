@@ -28,13 +28,13 @@ from link_downloader import __app_name__, __version__  # noqa: E402
 
 DESKTOP_ENTRY_TEMPLATE = """[Desktop Entry]
 Type=Application
-Name=Link Downloader
+Name=Prism Link Downloader
 Comment=Download videos, audio, and files from supported URLs and direct links
 Exec=/usr/bin/link-downloader %U
 Icon=link-downloader
 Terminal=false
 Categories=Network;AudioVideo;Utility;
-StartupWMClass=Link Downloader
+StartupWMClass=Prism Link Downloader
 """
 
 

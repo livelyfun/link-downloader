@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "link-downloader"
-version = "2.0.1"
+version = "2.1.0"
 description = "Cross-platform native Python desktop downloader for supported media platforms and direct file URLs"
 readme = "README.md"
 license = { text = "MIT" }

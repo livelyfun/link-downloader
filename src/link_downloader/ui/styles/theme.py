@@ -1,4 +1,4 @@
-"""Visual design system, Dark/Light QSS themes, and crisp programmatic SVG icons."""
+"""Light Neumorphic (Soft UI) design system, QSS themes, and crisp vector icons."""
 
 from __future__ import annotations
 
@@ -9,6 +9,13 @@ from PySide6.QtSvg import QSvgRenderer
 from link_downloader.core.enums import ThemeMode
 
 _ICON_PATHS: dict[str, str] = {
+    "brand_logo": (
+        '<path d="M8.5 9.5a3.5 3.5 0 0 1 7 0" stroke="{c}" stroke-width="2.1" '
+        'stroke-linecap="round" fill="none"/>'
+        '<path d="M12 8v7.5m0 0-3.2-3.2M12 15.5l3.2-3.2" stroke="{c}" stroke-width="2.2" '
+        'stroke-linecap="round" stroke-linejoin="round" fill="none"/>'
+        '<path d="M6.5 18.5h11" stroke="{c}" stroke-width="2.1" stroke-linecap="round"/>'
+    ),
     "download": (
         '<path d="M12 3v12m0 0-4.5-4.5M12 15l4.5-4.5" stroke="{c}" stroke-width="2.1" '
         'stroke-linecap="round" stroke-linejoin="round" fill="none"/>'
@@ -88,10 +95,18 @@ _ICON_PATHS: dict[str, str] = {
         '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3" '
         'stroke="{c}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>'
     ),
+    "bolt": (
+        '<path d="M13 2 4 14h7l-1 8 9-12h-7l1-8z" stroke="{c}" stroke-width="2" '
+        'stroke-linecap="round" stroke-linejoin="round" fill="none"/>'
+    ),
+    "sliders": (
+        '<path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6" '
+        'stroke="{c}" stroke-width="2" stroke-linecap="round"/>'
+    ),
 }
 
 
-def make_icon(name: str, color: str = "#cbd5e1", size: int = 20) -> QIcon:
+def make_icon(name: str, color: str = "#475569", size: int = 20) -> QIcon:
     """Render a crisp HiDPI QIcon from an inline SVG icon definition."""
     body = _ICON_PATHS.get(name, _ICON_PATHS["link"]).format(c=color)
     svg_str = f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">{body}</svg>'
@@ -106,61 +121,77 @@ def make_icon(name: str, color: str = "#cbd5e1", size: int = 20) -> QIcon:
 
 
 def get_theme_palette(mode: ThemeMode | str) -> dict[str, str]:
-    """Return color tokens for Dark or Light mode."""
-    is_light = str(mode).lower() == ThemeMode.LIGHT.value
-    if is_light:
+    """Return Light Neumorphic color tokens (Soft Porcelain default or Warm Pearl variant)."""
+    is_pearl = str(mode).lower() == ThemeMode.DARK.value
+    if is_pearl:
         return {
-            "bg": "#f4f6fb",
-            "sidebar": "#ffffff",
-            "card": "#ffffff",
-            "input": "#f8fafc",
-            "border": "#e2e8f0",
-            "border_hover": "#cbd5e1",
-            "text": "#0f172a",
+            "bg": "#eef0f5",
+            "sidebar": "#e6e9f1",
+            "card": "#eef0f5",
+            "raised_tl": "#f9fbff",
+            "raised_br": "#e2e6ef",
+            "inset_tl": "#dce1ec",
+            "inset_br": "#f4f6fb",
+            "bevel_light": "#ffffff",
+            "bevel_dark": "#c5cddc",
+            "input": "#e6ebf3",
+            "surface_subtle": "#e8ecf4",
+            "border": "#d0d7e3",
+            "border_hover": "#b8c3d6",
+            "text": "#1e293b",
             "text_secondary": "#475569",
             "text_muted": "#64748b",
-            "accent": "#4f46e5",
-            "accent_hover": "#4338ca",
-            "accent_soft": "rgba(79, 70, 229, 0.12)",
-            "accent_text": "#4338ca",
+            "accent": "#3b82f6",
+            "accent_top": "#60a5fa",
+            "accent_hover": "#2563eb",
+            "accent_soft": "#e0e9fb",
+            "accent_text": "#1d4ed8",
             "success": "#059669",
-            "success_bg": "rgba(16, 185, 129, 0.12)",
+            "success_bg": "#daf5ea",
             "warning": "#d97706",
-            "warning_bg": "rgba(245, 158, 11, 0.14)",
+            "warning_bg": "#fef3dc",
             "danger": "#dc2626",
-            "danger_bg": "rgba(239, 68, 68, 0.12)",
-            "scroll_track": "#f1f5f9",
-            "scroll_thumb": "#cbd5e1",
+            "danger_bg": "#fde4e4",
+            "scroll_track": "#e6e9f1",
+            "scroll_thumb": "#c3ccdc",
             "icon": "#475569",
         }
     return {
-        "bg": "#0d0f14",
-        "sidebar": "#131620",
-        "card": "#181c28",
-        "input": "#1f2435",
-        "border": "#2a3047",
-        "border_hover": "#3d4666",
-        "text": "#f1f5f9",
-        "text_secondary": "#94a3b8",
+        "bg": "#e8eef6",
+        "sidebar": "#e3eaf4",
+        "card": "#eaeff7",
+        "raised_tl": "#f6f9fe",
+        "raised_br": "#dee6f2",
+        "inset_tl": "#d7e0ed",
+        "inset_br": "#f2f6fc",
+        "bevel_light": "#ffffff",
+        "bevel_dark": "#c1cde0",
+        "input": "#e2e9f4",
+        "surface_subtle": "#e5ecf5",
+        "border": "#cdd7e6",
+        "border_hover": "#b3c2d8",
+        "text": "#1e293b",
+        "text_secondary": "#475569",
         "text_muted": "#64748b",
-        "accent": "#6366f1",
-        "accent_hover": "#4f46e5",
-        "accent_soft": "rgba(99, 102, 241, 0.18)",
-        "accent_text": "#a5b4fc",
-        "success": "#34d399",
-        "success_bg": "rgba(16, 185, 129, 0.16)",
-        "warning": "#fbbf24",
-        "warning_bg": "rgba(245, 158, 11, 0.16)",
-        "danger": "#f87171",
-        "danger_bg": "rgba(239, 68, 68, 0.16)",
-        "scroll_track": "#131620",
-        "scroll_thumb": "#333a54",
-        "icon": "#cbd5e1",
+        "accent": "#2563eb",
+        "accent_top": "#4f86f7",
+        "accent_hover": "#1d4ed8",
+        "accent_soft": "#dbe7fb",
+        "accent_text": "#1d4ed8",
+        "success": "#059669",
+        "success_bg": "#d7f4e8",
+        "warning": "#d97706",
+        "warning_bg": "#fdf0d5",
+        "danger": "#dc2626",
+        "danger_bg": "#fce2e2",
+        "scroll_track": "#e3eaf4",
+        "scroll_thumb": "#bcc9dc",
+        "icon": "#475569",
     }
 
 
 def build_stylesheet(mode: ThemeMode | str) -> str:
-    """Generate the complete Qt Style Sheet (QSS) for Dark or Light mode."""
+    """Generate the tactile Light Neumorphic (Soft UI) Qt Style Sheet."""
     p = get_theme_palette(mode)
     return f"""
     QMainWindow, QDialog {{
@@ -169,30 +200,78 @@ def build_stylesheet(mode: ThemeMode | str) -> str:
     }}
     QWidget {{
         color: {p['text']};
-        font-family: "Inter", "Segoe UI", "Noto Sans", system-ui, sans-serif;
+        font-family: "Inter", "SF Pro Text", "Segoe UI", "Noto Sans", system-ui, sans-serif;
         font-size: 13px;
     }}
     QWidget#Sidebar {{
         background-color: {p['sidebar']};
         border-right: 1px solid {p['border']};
     }}
+    QFrame#Toolbar {{
+        background-color: {p['sidebar']};
+        border-bottom: 1px solid {p['border']};
+    }}
     QFrame#Card, QGroupBox#Card {{
-        background-color: {p['card']};
-        border: 1px solid {p['border']};
+        background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+            stop:0 {p['raised_tl']}, stop:1 {p['raised_br']});
+        border-style: solid;
+        border-width: 1px;
+        border-top-color: {p['bevel_light']};
+        border-left-color: {p['bevel_light']};
+        border-bottom-color: {p['bevel_dark']};
+        border-right-color: {p['bevel_dark']};
+        border-radius: 14px;
+    }}
+    QFrame#EmptyCard {{
+        background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+            stop:0 {p['inset_tl']}, stop:1 {p['inset_br']});
+        border-style: solid;
+        border-width: 1px;
+        border-top-color: {p['bevel_dark']};
+        border-left-color: {p['bevel_dark']};
+        border-bottom-color: {p['bevel_light']};
+        border-right-color: {p['bevel_light']};
         border-radius: 14px;
     }}
     QFrame#BannerWarning {{
         background-color: {p['warning_bg']};
-        border: 1px solid {p['warning']};
+        border-style: solid;
+        border-width: 1px;
+        border-top-color: {p['bevel_light']};
+        border-left-color: {p['bevel_light']};
+        border-bottom-color: {p['warning']};
+        border-right-color: {p['warning']};
         border-radius: 12px;
     }}
     QFrame#SubCard {{
-        background-color: {p['input']};
-        border: 1px solid {p['border']};
+        background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+            stop:0 {p['inset_tl']}, stop:1 {p['inset_br']});
+        border-style: solid;
+        border-width: 1px;
+        border-top-color: {p['bevel_dark']};
+        border-left-color: {p['bevel_dark']};
+        border-bottom-color: {p['bevel_light']};
+        border-right-color: {p['bevel_light']};
         border-radius: 10px;
     }}
+    QFrame#SettingRow {{
+        background-color: transparent;
+        border: none;
+        border-bottom: 1px solid {p['border']};
+    }}
+    QFrame#StatusBox {{
+        background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+            stop:0 {p['raised_tl']}, stop:1 {p['raised_br']});
+        border-style: solid;
+        border-width: 1px;
+        border-top-color: {p['bevel_light']};
+        border-left-color: {p['bevel_light']};
+        border-bottom-color: {p['bevel_dark']};
+        border-right-color: {p['bevel_dark']};
+        border-radius: 12px;
+    }}
     QLabel#PageTitle {{
-        font-size: 20px;
+        font-size: 17px;
         font-weight: 700;
         color: {p['text']};
     }}
@@ -209,7 +288,7 @@ def build_stylesheet(mode: ThemeMode | str) -> str:
     QLabel#ErrorLabel {{
         color: {p['danger']};
         font-size: 12px;
-        font-weight: 500;
+        font-weight: 600;
     }}
     QLabel#SuccessLabel {{
         color: {p['success']};
@@ -220,57 +299,114 @@ def build_stylesheet(mode: ThemeMode | str) -> str:
         background-color: transparent;
         border: 1px solid transparent;
         border-radius: 10px;
-        padding: 10px 14px;
+        padding: 8px 12px;
         text-align: left;
         font-weight: 500;
         color: {p['text_secondary']};
     }}
     QPushButton#NavButton:hover {{
-        background-color: {p['accent_soft']};
+        background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+            stop:0 {p['raised_tl']}, stop:1 {p['raised_br']});
+        border-style: solid;
+        border-width: 1px;
+        border-top-color: {p['bevel_light']};
+        border-left-color: {p['bevel_light']};
+        border-bottom-color: {p['bevel_dark']};
+        border-right-color: {p['bevel_dark']};
         color: {p['text']};
     }}
     QPushButton#NavButton:checked {{
-        background-color: {p['accent_soft']};
-        border: 1px solid {p['accent']};
+        background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+            stop:0 {p['inset_tl']}, stop:1 {p['inset_br']});
+        border-style: solid;
+        border-width: 1px;
+        border-top-color: {p['bevel_dark']};
+        border-left-color: {p['bevel_dark']};
+        border-bottom-color: {p['bevel_light']};
+        border-right-color: {p['bevel_light']};
         color: {p['accent_text']};
-        font-weight: 600;
+        font-weight: 700;
     }}
     QPushButton#PrimaryButton {{
-        background-color: {p['accent']};
+        background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+            stop:0 {p['accent_top']}, stop:1 {p['accent']});
         color: #ffffff;
-        border: none;
+        border-style: solid;
+        border-width: 1px;
+        border-top-color: #93c5fd;
+        border-left-color: #7fb4fc;
+        border-bottom-color: {p['accent_hover']};
+        border-right-color: {p['accent_hover']};
         border-radius: 10px;
-        padding: 9px 18px;
+        padding: 7px 15px;
         font-weight: 600;
     }}
     QPushButton#PrimaryButton:hover {{
+        background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+            stop:0 {p['accent']}, stop:1 {p['accent_hover']});
+    }}
+    QPushButton#PrimaryButton:pressed {{
         background-color: {p['accent_hover']};
     }}
     QPushButton#PrimaryButton:disabled {{
-        background-color: {p['border']};
+        background: {p['inset_tl']};
+        border-color: {p['border']};
         color: {p['text_muted']};
     }}
     QPushButton#GhostButton {{
-        background-color: {p['input']};
+        background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+            stop:0 {p['raised_tl']}, stop:1 {p['raised_br']});
         color: {p['text']};
-        border: 1px solid {p['border']};
-        border-radius: 9px;
-        padding: 7px 13px;
+        border-style: solid;
+        border-width: 1px;
+        border-top-color: {p['bevel_light']};
+        border-left-color: {p['bevel_light']};
+        border-bottom-color: {p['bevel_dark']};
+        border-right-color: {p['bevel_dark']};
+        border-radius: 10px;
+        padding: 6px 12px;
         font-weight: 500;
     }}
     QPushButton#GhostButton:hover {{
-        border-color: {p['border_hover']};
-        background-color: {p['accent_soft']};
+        background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+            stop:0 #ffffff, stop:1 {p['raised_tl']});
+        color: {p['accent_text']};
+    }}
+    QPushButton#GhostButton:pressed {{
+        background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+            stop:0 {p['inset_tl']}, stop:1 {p['inset_br']});
+        border-top-color: {p['bevel_dark']};
+        border-left-color: {p['bevel_dark']};
+        border-bottom-color: {p['bevel_light']};
+        border-right-color: {p['bevel_light']};
     }}
     QPushButton#GhostButton:disabled {{
         color: {p['text_muted']};
+        background: {p['surface_subtle']};
+    }}
+    QPushButton#IconButton {{
+        background-color: transparent;
+        color: {p['text_secondary']};
+        border: 1px solid transparent;
+        border-radius: 8px;
+        padding: 4px 6px;
+    }}
+    QPushButton#IconButton:hover {{
+        background-color: {p['inset_tl']};
+        border-color: {p['border']};
+        color: {p['text']};
     }}
     QPushButton#DangerButton {{
         background-color: {p['danger_bg']};
         color: {p['danger']};
-        border: 1px solid {p['danger']};
-        border-radius: 9px;
-        padding: 7px 13px;
+        border-style: solid;
+        border-width: 1px;
+        border-top-color: {p['bevel_light']};
+        border-left-color: {p['bevel_light']};
+        border-bottom-color: {p['danger']};
+        border-right-color: {p['danger']};
+        border-radius: 10px;
+        padding: 6px 12px;
         font-weight: 600;
     }}
     QPushButton#DangerButton:hover {{
@@ -278,27 +414,45 @@ def build_stylesheet(mode: ThemeMode | str) -> str:
         color: #ffffff;
     }}
     QPushButton#FilterChip {{
-        background-color: transparent;
+        background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+            stop:0 {p['raised_tl']}, stop:1 {p['raised_br']});
         color: {p['text_secondary']};
-        border: 1px solid {p['border']};
-        border-radius: 8px;
-        padding: 5px 12px;
+        border-style: solid;
+        border-width: 1px;
+        border-top-color: {p['bevel_light']};
+        border-left-color: {p['bevel_light']};
+        border-bottom-color: {p['bevel_dark']};
+        border-right-color: {p['bevel_dark']};
+        border-radius: 9px;
+        padding: 5px 11px;
         font-size: 12px;
         font-weight: 500;
     }}
     QPushButton#FilterChip:checked {{
-        background-color: {p['accent_soft']};
-        border-color: {p['accent']};
+        background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+            stop:0 {p['inset_tl']}, stop:1 {p['inset_br']});
+        border-top-color: {p['bevel_dark']};
+        border-left-color: {p['bevel_dark']};
+        border-bottom-color: {p['bevel_light']};
+        border-right-color: {p['bevel_light']};
         color: {p['accent_text']};
-        font-weight: 600;
+        font-weight: 700;
     }}
     QLineEdit, QComboBox, QSpinBox {{
-        background-color: {p['input']};
+        background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+            stop:0 {p['inset_tl']}, stop:1 {p['inset_br']});
         color: {p['text']};
-        border: 1px solid {p['border']};
+        border-style: solid;
+        border-width: 1px;
+        border-top-color: {p['bevel_dark']};
+        border-left-color: {p['bevel_dark']};
+        border-bottom-color: {p['bevel_light']};
+        border-right-color: {p['bevel_light']};
         border-radius: 10px;
-        padding: 8px 12px;
+        padding: 6px 11px;
+        min-height: 20px;
         selection-background-color: {p['accent']};
+        selection-color: #ffffff;
     }}
     QLineEdit:focus, QComboBox:focus, QSpinBox:focus {{
         border: 1px solid {p['accent']};
@@ -308,44 +462,65 @@ def build_stylesheet(mode: ThemeMode | str) -> str:
         width: 24px;
     }}
     QComboBox QAbstractItemView {{
-        background-color: {p['card']};
+        background-color: {p['raised_tl']};
         color: {p['text']};
         border: 1px solid {p['border']};
+        border-radius: 8px;
         selection-background-color: {p['accent_soft']};
+        selection-color: {p['accent_text']};
     }}
     QListWidget {{
-        background-color: {p['input']};
-        border: 1px solid {p['border']};
+        background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+            stop:0 {p['inset_tl']}, stop:1 {p['inset_br']});
+        border-style: solid;
+        border-width: 1px;
+        border-top-color: {p['bevel_dark']};
+        border-left-color: {p['bevel_dark']};
+        border-bottom-color: {p['bevel_light']};
+        border-right-color: {p['bevel_light']};
         border-radius: 10px;
         padding: 4px;
         outline: none;
     }}
     QListWidget::item {{
         border-radius: 8px;
-        padding: 8px 10px;
+        padding: 6px 10px;
         margin: 2px 0px;
         color: {p['text']};
     }}
     QListWidget::item:selected {{
-        background-color: {p['accent_soft']};
-        border: 1px solid {p['accent']};
-        color: {p['text']};
+        background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+            stop:0 {p['raised_tl']}, stop:1 {p['raised_br']});
+        border-style: solid;
+        border-width: 1px;
+        border-top-color: {p['bevel_light']};
+        border-left-color: {p['bevel_light']};
+        border-bottom-color: {p['accent']};
+        border-right-color: {p['accent']};
+        color: {p['accent_text']};
+        font-weight: 600;
     }}
     QListWidget::item:hover:!selected {{
-        background-color: {p['card']};
+        background-color: {p['raised_tl']};
     }}
     QProgressBar {{
-        background-color: {p['input']};
-        border: 1px solid {p['border']};
-        border-radius: 5px;
+        background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+            stop:0 {p['inset_tl']}, stop:1 {p['inset_br']});
+        border-style: solid;
+        border-width: 1px;
+        border-top-color: {p['bevel_dark']};
+        border-left-color: {p['bevel_dark']};
+        border-bottom-color: {p['bevel_light']};
+        border-right-color: {p['bevel_light']};
+        border-radius: 4px;
         height: 8px;
         text-align: center;
         color: transparent;
     }}
     QProgressBar::chunk {{
-        border-radius: 4px;
+        border-radius: 3px;
         background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-            stop:0 {p['accent']}, stop:1 #8b5cf6);
+            stop:0 {p['accent']}, stop:1 #38bdf8);
     }}
     QScrollArea {{
         border: none;
@@ -377,9 +552,9 @@ def build_stylesheet(mode: ThemeMode | str) -> str:
     QLabel#BadgeInfo {{
         background-color: {p['accent_soft']};
         color: {p['accent_text']};
-        border: 1px solid {p['accent']};
-        border-radius: 10px;
-        padding: 2px 9px;
+        border: 1px solid {p['border']};
+        border-radius: 8px;
+        padding: 2px 8px;
         font-size: 11px;
         font-weight: 600;
     }}
@@ -387,8 +562,8 @@ def build_stylesheet(mode: ThemeMode | str) -> str:
         background-color: {p['success_bg']};
         color: {p['success']};
         border: 1px solid {p['success']};
-        border-radius: 10px;
-        padding: 2px 9px;
+        border-radius: 8px;
+        padding: 2px 8px;
         font-size: 11px;
         font-weight: 600;
     }}
@@ -396,8 +571,8 @@ def build_stylesheet(mode: ThemeMode | str) -> str:
         background-color: {p['warning_bg']};
         color: {p['warning']};
         border: 1px solid {p['warning']};
-        border-radius: 10px;
-        padding: 2px 9px;
+        border-radius: 8px;
+        padding: 2px 8px;
         font-size: 11px;
         font-weight: 600;
     }}
@@ -405,8 +580,8 @@ def build_stylesheet(mode: ThemeMode | str) -> str:
         background-color: {p['danger_bg']};
         color: {p['danger']};
         border: 1px solid {p['danger']};
-        border-radius: 10px;
-        padding: 2px 9px;
+        border-radius: 8px;
+        padding: 2px 8px;
         font-size: 11px;
         font-weight: 600;
     }}

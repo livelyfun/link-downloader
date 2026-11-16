@@ -1,8 +1,9 @@
-"""Primary Download dashboard page: URL analysis, metadata preview, and active jobs."""
+"""Primary Download workspace: desktop toolbar, URL command deck, inspector, and live transfers."""
 
 from __future__ import annotations
 
 from PySide6.QtCore import Signal
+from PySide6.QtGui import QResizeEvent
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -14,23 +15,48 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from link_downloader.core.enums import EngineType, OverwriteBehavior, ResourceKind
+from link_downloader.core.enums import EngineType, FormatKind, OverwriteBehavior, ResourceKind
 from link_downloader.core.models import (
     DownloadJob,
     DownloadRequest,
     FormatOption,
     ResourceMetadata,
 )
-from link_downloader.platform.file_actions import open_file, reveal_in_file_manager
+from link_downloader.platform.file_actions import open_file, open_folder, reveal_in_file_manager
 from link_downloader.services.download_manager import DownloadManager
 from link_downloader.ui.components.download_item_card import DownloadItemCard
 from link_downloader.ui.components.empty_state import EmptyStateWidget
 from link_downloader.ui.components.metadata_preview_card import MetadataPreviewCard
+from link_downloader.ui.components.pagination_bar import PaginationBar
 from link_downloader.ui.components.url_input_card import UrlInputCard
+from link_downloader.ui.styles.theme import make_icon
+
+
+def _select_preset_format(metadata: ResourceMetadata, preset: str) -> FormatOption | None:
+    if not metadata.formats:
+        return None
+    if metadata.engine_type == EngineType.DIRECT_HTTP:
+        return metadata.formats[0]
+
+    if preset == "audio":
+        audio_fmts = [f for f in metadata.formats if f.kind == FormatKind.AUDIO_ONLY]
+        return audio_fmts[0] if audio_fmts else metadata.formats[0]
+
+    height_caps = {"1080p": 1080, "720p": 720, "480p": 480}
+    cap = height_caps.get(preset)
+    if cap is not None:
+        capped = [
+            f
+            for f in metadata.formats
+            if f.kind != FormatKind.AUDIO_ONLY and (f.height is None or f.height <= cap)
+        ]
+        if capped:
+            return capped[0]
+    return metadata.formats[0]
 
 
 class DownloadPage(QWidget):
-    """Dashboard page for pasting/dropping URLs, previewing metadata, and starting downloads."""
+    """Desktop download workspace with quick capture, inspector, and active transfers."""
 
     open_queue_requested = Signal()
 
@@ -38,35 +64,56 @@ class DownloadPage(QWidget):
         super().__init__(parent)
         self._manager = manager
         self._active_request_id: str | None = None
+        self._quick_presets: dict[str, str] = {}
         self._job_cards: dict[str, DownloadItemCard] = {}
+        self._job_order: list[str] = []
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(0)
+
+        # Native desktop top window toolbar
+        toolbar = QFrame()
+        toolbar.setObjectName("Toolbar")
+        tb_lay = QHBoxLayout(toolbar)
+        tb_lay.setContentsMargins(20, 10, 20, 10)
+        tb_lay.setSpacing(10)
+
+        page_title = QLabel("Downloads")
+        page_title.setObjectName("PageTitle")
+        tb_lay.addWidget(page_title)
+        tb_lay.addStretch()
+
+        self._dest_hint = QLabel(self._manager.settings.download_folder)
+        self._dest_hint.setObjectName("MutedLabel")
+        self._dest_hint.setToolTip(self._manager.settings.download_folder)
+        self._dest_hint.setMaximumWidth(280)
+        tb_lay.addWidget(self._dest_hint)
+
+        self.open_dest_btn = QPushButton("Open Folder")
+        self.open_dest_btn.setObjectName("GhostButton")
+        self.open_dest_btn.setIcon(make_icon("folder", "#475569", 14))
+        self.open_dest_btn.clicked.connect(
+            lambda: open_folder(self._manager.settings.download_folder)
+        )
+        tb_lay.addWidget(self.open_dest_btn)
+        outer.addWidget(toolbar)
 
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
-        outer.addWidget(scroll)
+        outer.addWidget(scroll, 1)
 
         content = QWidget()
         content.setObjectName("ScrollContent")
         scroll.setWidget(content)
 
         self._layout = QVBoxLayout(content)
-        self._layout.setContentsMargins(24, 22, 24, 24)
-        self._layout.setSpacing(16)
-
-        title_row = QHBoxLayout()
-        page_title = QLabel("Download")
-        page_title.setObjectName("PageTitle")
-        title_row.addWidget(page_title)
-        title_row.addStretch()
-        self._dest_hint = QLabel(f"Saving to: {self._manager.settings.download_folder}")
-        self._dest_hint.setObjectName("MutedLabel")
-        title_row.addWidget(self._dest_hint)
-        self._layout.addLayout(title_row)
+        self._layout.setContentsMargins(20, 16, 20, 20)
+        self._layout.setSpacing(12)
 
         self.url_card = UrlInputCard(allow_private=allow_private)
         self.url_card.analyze_requested.connect(self._on_analyze_requested)
+        self.url_card.quick_download_requested.connect(self._on_quick_download_requested)
         self.url_card.cleared.connect(self._on_cleared)
         self._layout.addWidget(self.url_card)
 
@@ -75,9 +122,9 @@ class DownloadPage(QWidget):
         self.loading_card.setObjectName("Card")
         self.loading_card.setVisible(False)
         load_layout = QVBoxLayout(self.loading_card)
-        load_layout.setContentsMargins(18, 16, 18, 16)
-        load_layout.setSpacing(8)
-        load_lbl = QLabel("Resolving URL capabilities and inspecting available streams or headers...")
+        load_layout.setContentsMargins(14, 12, 14, 12)
+        load_layout.setSpacing(6)
+        load_lbl = QLabel("Inspecting link and resolving downloadable streams...")
         load_lbl.setObjectName("MutedLabel")
         load_bar = QProgressBar()
         load_bar.setRange(0, 0)
@@ -85,40 +132,47 @@ class DownloadPage(QWidget):
         load_layout.addWidget(load_bar)
         self._layout.addWidget(self.loading_card)
 
-        # Preview card
+        # Two-column Media Inspector card
         self.preview_card = MetadataPreviewCard()
         self.preview_card.download_requested.connect(self._on_download_requested)
+        self.preview_card.closed.connect(self._on_preview_closed)
         self._layout.addWidget(self.preview_card)
 
-        # Empty state when nothing analyzed yet
-        self.idle_empty_state = EmptyStateWidget(
-            "Ready to Download",
-            "Paste a YouTube, Vimeo, SoundCloud, or media page link to inspect formats, "
-            "or enter a direct file URL (.mp4, .mp3, .pdf, .zip, images, packages).",
-            icon_name="link",
-        )
-        self._layout.addWidget(self.idle_empty_state)
-
-        # Active & recent jobs section
+        # Active & Recent Transfers section (always visible as core desktop workspace)
         jobs_header = QHBoxLayout()
-        self.jobs_section_label = QLabel("RECENT ACTIVITY")
+        jobs_header.setSpacing(8)
+        self.jobs_section_label = QLabel("ACTIVE & RECENT TRANSFERS")
         self.jobs_section_label.setObjectName("SectionTitle")
         jobs_header.addWidget(self.jobs_section_label)
         jobs_header.addStretch()
 
-        self.view_queue_btn = QPushButton("Open Full Queue")
+        self.view_queue_btn = QPushButton("Full Queue")
         self.view_queue_btn.setObjectName("GhostButton")
         self.view_queue_btn.clicked.connect(self.open_queue_requested.emit)
         jobs_header.addWidget(self.view_queue_btn)
 
         self.jobs_header_widget = QWidget()
         self.jobs_header_widget.setLayout(jobs_header)
-        self.jobs_header_widget.setVisible(False)
         self._layout.addWidget(self.jobs_header_widget)
 
         self.jobs_container = QVBoxLayout()
-        self.jobs_container.setSpacing(10)
+        self.jobs_container.setSpacing(8)
         self._layout.addLayout(self.jobs_container)
+
+        self.pagination_bar = PaginationBar(
+            default_page_size=5,
+            page_size_options=(5, 10, 20),
+        )
+        self.pagination_bar.page_changed.connect(lambda _p: self._apply_jobs_pagination())
+        self.pagination_bar.page_size_changed.connect(lambda _s: self._apply_jobs_pagination())
+        self._layout.addWidget(self.pagination_bar)
+
+        self.idle_empty_state = EmptyStateWidget(
+            "No active transfers",
+            "Paste or drop a link above — click Quick Download for instant capture or Inspect Formats to pick a stream.",
+            icon_name="download",
+        )
+        self._layout.addWidget(self.idle_empty_state)
         self._layout.addStretch()
 
         # Connect manager signals
@@ -135,20 +189,30 @@ class DownloadPage(QWidget):
         self._on_analyze_requested(url)
 
     def _on_settings_changed(self, settings) -> None:
-        self._dest_hint.setText(f"Saving to: {settings.download_folder}")
+        self._dest_hint.setText(settings.download_folder)
 
     def _on_analyze_requested(self, normalized_url: str) -> None:
         self.url_card.set_loading(True)
         self.preview_card.setVisible(False)
-        self.idle_empty_state.setVisible(False)
         self.loading_card.setVisible(True)
         self._active_request_id = self._manager.analyze_url(normalized_url)
+
+    def _on_quick_download_requested(self, normalized_url: str, preset: str) -> None:
+        self.url_card.set_loading(True)
+        self.preview_card.setVisible(False)
+        self.loading_card.setVisible(True)
+        req_id = self._manager.analyze_url(normalized_url)
+        self._active_request_id = req_id
+        self._quick_presets[req_id] = preset
 
     def _on_cleared(self) -> None:
         self._active_request_id = None
         self.loading_card.setVisible(False)
         self.preview_card.setVisible(False)
-        self.idle_empty_state.setVisible(True)
+        self._update_empty_transfer_visibility()
+
+    def _on_preview_closed(self) -> None:
+        self._update_empty_transfer_visibility()
 
     def _on_metadata_resolved(
         self,
@@ -157,30 +221,38 @@ class DownloadPage(QWidget):
         thumb_bytes: bytes | None,
     ) -> None:
         if request_id != self._active_request_id:
+            self._quick_presets.pop(request_id, None)
             return
         self.url_card.set_loading(False)
         self.loading_card.setVisible(False)
 
         if metadata.engine_type == EngineType.DIRECT_HTTP:
-            badge_text = "Direct File Download · HTTP/HTTPS"
+            badge_text = "Direct HTTP"
         elif metadata.resource_kind == ResourceKind.GENERIC_MEDIA_PAGE:
-            badge_text = "Webpage Media Extraction · yt-dlp"
+            badge_text = "Web Media"
         else:
-            badge_text = f"Media Platform · {metadata.source_platform}"
+            badge_text = metadata.source_platform
 
         self.url_card.set_detected_engine(metadata.engine_type, badge_text)
         deps = self._manager.check_dependencies()
         ffmpeg_ok = any(d.name == "FFmpeg" and d.available for d in deps)
         self.preview_card.set_metadata(metadata, thumb_bytes, ffmpeg_available=ffmpeg_ok)
 
+        quick_preset = self._quick_presets.pop(request_id, None)
+        if quick_preset is not None:
+            fmt = _select_preset_format(metadata, quick_preset)
+            if fmt is not None:
+                self._on_download_requested(metadata, fmt, "")
+
     def _on_metadata_failed(self, request_id: str, error_msg: str) -> None:
+        self._quick_presets.pop(request_id, None)
         if request_id != self._active_request_id:
             return
         self.url_card.set_loading(False)
         self.loading_card.setVisible(False)
         self.preview_card.setVisible(False)
-        self.idle_empty_state.setVisible(True)
         self.url_card.set_error(error_msg)
+        self._update_empty_transfer_visibility()
 
     def _on_download_requested(
         self,
@@ -217,7 +289,23 @@ class DownloadPage(QWidget):
                 card = self._job_cards.pop(stale_id)
                 self.jobs_container.removeWidget(card)
                 card.deleteLater()
-        self.jobs_header_widget.setVisible(bool(self._job_cards))
+        self._job_order = [jid for jid in self._job_order if jid in current_ids]
+        self._update_empty_transfer_visibility()
+        self._apply_jobs_pagination()
+
+    def _update_empty_transfer_visibility(self) -> None:
+        self.idle_empty_state.setVisible(len(self._job_cards) == 0)
+
+    def _apply_jobs_pagination(self) -> None:
+        self.pagination_bar.set_total_items(len(self._job_order))
+        start, end = self.pagination_bar.current_range(len(self._job_order))
+        visible_ids = set(self._job_order[start:end])
+        for jid, card in self._job_cards.items():
+            card.setVisible(jid in visible_ids)
+
+    def resizeEvent(self, event: QResizeEvent) -> None:  # noqa: N802
+        super().resizeEvent(event)
+        self._dest_hint.setVisible(event.size().width() >= 560)
 
     def _ensure_job_card(self, job: DownloadJob) -> None:
         if job.job_id in self._job_cards:
@@ -233,12 +321,7 @@ class DownloadPage(QWidget):
             lambda fp: reveal_in_file_manager(fp, self._manager.settings.download_folder)
         )
         self._job_cards[job.job_id] = card
+        self._job_order.insert(0, job.job_id)
         self.jobs_container.insertWidget(0, card)
-        self.jobs_header_widget.setVisible(True)
-        # Keep Download page quick-activity view concise (max 4 recent cards; full list in Queue page)
-        while self.jobs_container.count() > 4:
-            last_item = self.jobs_container.takeAt(self.jobs_container.count() - 1)
-            w = last_item.widget()
-            if isinstance(w, DownloadItemCard):
-                self._job_cards.pop(w.job_id, None)
-                w.deleteLater()
+        self._update_empty_transfer_visibility()
+        self._apply_jobs_pagination()

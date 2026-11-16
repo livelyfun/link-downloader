@@ -1,9 +1,11 @@
-"""Settings page with storage, media, concurrency, theme, and dependency diagnostics."""
+"""Native-style desktop Settings page with structured preference rows and component diagnostics."""
 
 from __future__ import annotations
 
 from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QResizeEvent
 from PySide6.QtWidgets import (
+    QBoxLayout,
     QCheckBox,
     QComboBox,
     QFileDialog,
@@ -14,6 +16,7 @@ from PySide6.QtWidgets import (
     QProgressBar,
     QPushButton,
     QScrollArea,
+    QSizePolicy,
     QSpinBox,
     QVBoxLayout,
     QWidget,
@@ -34,8 +37,52 @@ from link_downloader.ui.dialogs.diagnostic_dialog import DiagnosticDialog
 from link_downloader.ui.styles.theme import make_icon
 
 
+class _ResponsiveSettingRow(QFrame):
+    """Preference row that switches cleanly between horizontal and stacked layouts."""
+
+    def __init__(
+        self,
+        title_text: str,
+        subtitle_text: str,
+        control: QWidget,
+        *,
+        is_last: bool = False,
+        parent=None,
+    ) -> None:
+        super().__init__(parent)
+        if not is_last:
+            self.setObjectName("SettingRow")
+        self._box = QBoxLayout(QBoxLayout.Direction.LeftToRight, self)
+        self._box.setContentsMargins(0, 10, 0, 10)
+        self._box.setSpacing(12)
+
+        text_col = QVBoxLayout()
+        text_col.setSpacing(2)
+        title_lbl = QLabel(title_text)
+        title_lbl.setStyleSheet("font-weight: 600;")
+        sub_lbl = QLabel(subtitle_text)
+        sub_lbl.setObjectName("MutedLabel")
+        sub_lbl.setWordWrap(True)
+        sub_lbl.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
+        text_col.addWidget(title_lbl)
+        text_col.addWidget(sub_lbl)
+
+        self._box.addLayout(text_col, 1)
+        self._box.addWidget(control)
+
+    def resizeEvent(self, event: QResizeEvent) -> None:  # noqa: N802
+        super().resizeEvent(event)
+        direction = (
+            QBoxLayout.Direction.TopToBottom
+            if event.size().width() < 520
+            else QBoxLayout.Direction.LeftToRight
+        )
+        if self._box.direction() != direction:
+            self._box.setDirection(direction)
+
+
 class SettingsPage(QWidget):
-    """Organized settings groups and live dependency diagnostics."""
+    """Structured desktop settings groups and component health diagnostics."""
 
     theme_changed = Signal(str)
 
@@ -45,43 +92,59 @@ class SettingsPage(QWidget):
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(0)
+
+        # Sticky top toolbar with Save / Discard
+        toolbar = QFrame()
+        toolbar.setObjectName("Toolbar")
+        tb_lay = QHBoxLayout(toolbar)
+        tb_lay.setContentsMargins(20, 10, 20, 10)
+        tb_lay.setSpacing(8)
+
+        title = QLabel("Settings")
+        title.setObjectName("PageTitle")
+        tb_lay.addWidget(title)
+
+        self.saved_badge = QLabel("Saved")
+        self.saved_badge.setObjectName("BadgeSuccess")
+        self.saved_badge.setVisible(False)
+        tb_lay.addWidget(self.saved_badge)
+        tb_lay.addStretch()
+
+        self.reset_btn = QPushButton("Discard")
+        self.reset_btn.setObjectName("GhostButton")
+        self.reset_btn.clicked.connect(self.load_from_manager)
+        tb_lay.addWidget(self.reset_btn)
+
+        self.save_btn = QPushButton("Save Changes")
+        self.save_btn.setObjectName("PrimaryButton")
+        self.save_btn.setIcon(make_icon("check", "#ffffff", 14))
+        self.save_btn.clicked.connect(self._save_settings)
+        tb_lay.addWidget(self.save_btn)
+        outer.addWidget(toolbar)
 
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
-        outer.addWidget(scroll)
+        outer.addWidget(scroll, 1)
 
         content = QWidget()
         content.setObjectName("ScrollContent")
         scroll.setWidget(content)
 
         self._layout = QVBoxLayout(content)
-        self._layout.setContentsMargins(24, 22, 24, 24)
-        self._layout.setSpacing(16)
+        self._layout.setContentsMargins(20, 16, 20, 24)
+        self._layout.setSpacing(14)
         self._layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
-        header = QHBoxLayout()
-        title = QLabel("Settings")
-        title.setObjectName("PageTitle")
-        header.addWidget(title)
-        header.addStretch()
+        # Section 1: Storage & Files
+        storage_card, s_lay = self._make_section("STORAGE & FILES")
 
-        self.saved_badge = QLabel("Settings saved")
-        self.saved_badge.setObjectName("BadgeSuccess")
-        self.saved_badge.setVisible(False)
-        header.addWidget(self.saved_badge)
-        self._layout.addLayout(header)
-
-        # Card 1: Storage & Files
-        storage_card = self._make_card("STORAGE & FILE HANDLING")
-        s_lay = storage_card.layout()
-
-        dest_lbl = QLabel("Download Destination Folder")
-        dest_lbl.setStyleSheet("font-weight: 600;")
-        s_lay.addWidget(dest_lbl)
-
-        dest_row = QHBoxLayout()
-        dest_row.setSpacing(8)
+        dest_wrap = QWidget()
+        dest_row = QHBoxLayout(dest_wrap)
+        dest_row.setContentsMargins(0, 0, 0, 0)
+        dest_row.setSpacing(6)
         self.folder_edit = QLineEdit()
+        self.folder_edit.setMinimumWidth(110)
         dest_row.addWidget(self.folder_edit, 1)
 
         browse_btn = QPushButton("Browse...")
@@ -89,133 +152,158 @@ class SettingsPage(QWidget):
         browse_btn.clicked.connect(self._browse_folder)
         dest_row.addWidget(browse_btn)
 
-        open_btn = QPushButton("Open")
+        open_btn = QPushButton()
         open_btn.setObjectName("GhostButton")
-        open_btn.setIcon(make_icon("folder", "#cbd5e1", 15))
+        open_btn.setIcon(make_icon("folder", "#475569", 14))
+        open_btn.setToolTip("Open downloads folder")
         open_btn.clicked.connect(lambda: open_folder(self.folder_edit.text().strip()))
         dest_row.addWidget(open_btn)
-        s_lay.addLayout(dest_row)
-
-        collision_row = QHBoxLayout()
-        collision_lbl = QLabel("Existing-File Behavior")
-        collision_lbl.setStyleSheet("font-weight: 600;")
-        collision_row.addWidget(collision_lbl)
-        collision_row.addStretch()
+        s_lay.addWidget(
+            self._make_row(
+                "Download Folder",
+                "Destination directory where downloaded files are saved.",
+                dest_wrap,
+            )
+        )
 
         self.overwrite_combo = QComboBox()
         self.overwrite_combo.addItem("Rename automatically (safe)", OverwriteBehavior.RENAME.value)
         self.overwrite_combo.addItem("Overwrite existing file", OverwriteBehavior.OVERWRITE.value)
         self.overwrite_combo.addItem("Skip if file exists", OverwriteBehavior.SKIP.value)
-        collision_row.addWidget(self.overwrite_combo)
-        s_lay.addLayout(collision_row)
+        s_lay.addWidget(
+            self._make_row(
+                "Duplicate File Handling",
+                "Action to take when a file with the same name already exists.",
+                self.overwrite_combo,
+            )
+        )
 
-        self.sanitize_check = QCheckBox("Automatic safe filename sanitization (recommended)")
-        s_lay.addWidget(self.sanitize_check)
+        self.sanitize_check = QCheckBox("Sanitize unsafe characters in filenames")
+        s_lay.addWidget(
+            self._make_row(
+                "Safe Filenames",
+                "Automatically clean special OS characters and prevent path issues.",
+                self.sanitize_check,
+                is_last=True,
+            )
+        )
         self._layout.addWidget(storage_card)
 
-        # Card 2: Media & Download Defaults
-        media_card = self._make_card("MEDIA, QUEUE & NETWORK DEFAULTS")
-        m_lay = media_card.layout()
+        # Section 2: Media, Queue & Network
+        media_card, m_lay = self._make_section("DOWNLOADS, MEDIA & NETWORK")
 
-        fmt_row = QHBoxLayout()
-        fmt_lbl = QLabel("Default Media Format")
-        fmt_lbl.setStyleSheet("font-weight: 600;")
-        fmt_row.addWidget(fmt_lbl)
-        fmt_row.addStretch()
         self.format_combo = QComboBox()
         for label, value in DEFAULT_FORMAT_PRESETS:
             self.format_combo.addItem(label, value)
-        fmt_row.addWidget(self.format_combo)
-        m_lay.addLayout(fmt_row)
+        m_lay.addWidget(
+            self._make_row(
+                "Default Format Preset",
+                "Preferred container and stream rule for video/audio links.",
+                self.format_combo,
+            )
+        )
 
-        qual_row = QHBoxLayout()
-        qual_lbl = QLabel("Default Video Quality Preference")
-        qual_lbl.setStyleSheet("font-weight: 600;")
-        qual_row.addWidget(qual_lbl)
-        qual_row.addStretch()
         self.quality_combo = QComboBox()
         for q in DEFAULT_QUALITY_OPTIONS:
             self.quality_combo.addItem(q.upper() if q != "best" else "Best Available", q)
-        qual_row.addWidget(self.quality_combo)
-        m_lay.addLayout(qual_row)
+        m_lay.addWidget(
+            self._make_row(
+                "Default Resolution",
+                "Target resolution cap when downloading video platforms.",
+                self.quality_combo,
+            )
+        )
 
-        conc_row = QHBoxLayout()
-        conc_lbl = QLabel("Concurrent Downloads (1-5)")
-        conc_lbl.setStyleSheet("font-weight: 600;")
-        conc_row.addWidget(conc_lbl)
-        conc_row.addStretch()
         self.concurrency_spin = QSpinBox()
         self.concurrency_spin.setRange(MIN_CONCURRENT_DOWNLOADS, MAX_CONCURRENT_DOWNLOADS)
-        conc_row.addWidget(self.concurrency_spin)
-        m_lay.addLayout(conc_row)
+        m_lay.addWidget(
+            self._make_row(
+                "Parallel Transfers",
+                "Maximum number of downloads running simultaneously (1-5).",
+                self.concurrency_spin,
+            )
+        )
 
-        self.mp3_check = QCheckBox("Auto-convert extracted audio to MP3 (requires FFmpeg)")
-        m_lay.addWidget(self.mp3_check)
+        self.mp3_check = QCheckBox("Convert audio-only downloads to MP3")
+        m_lay.addWidget(
+            self._make_row(
+                "MP3 Audio Conversion",
+                "Automatically transcode extracted audio tracks (uses FFmpeg).",
+                self.mp3_check,
+            )
+        )
 
-        self.ipv4_check = QCheckBox("Prefer IPv4 networking (avoids stalls on broken dual-stack IPv6 networks)")
-        m_lay.addWidget(self.ipv4_check)
+        self.ipv4_check = QCheckBox("Prefer IPv4 connections")
+        m_lay.addWidget(
+            self._make_row(
+                "Network Protocol",
+                "Avoid stalls on networks with incomplete IPv6 routing.",
+                self.ipv4_check,
+                is_last=True,
+            )
+        )
         self._layout.addWidget(media_card)
 
-        # Card 3: Appearance
-        theme_card = self._make_card("APPEARANCE")
-        t_lay = theme_card.layout()
-        theme_row = QHBoxLayout()
-        theme_lbl = QLabel("Interface Theme")
-        theme_lbl.setStyleSheet("font-weight: 600;")
-        theme_row.addWidget(theme_lbl)
-        theme_row.addStretch()
+        # Section 3: Appearance
+        theme_card, t_lay = self._make_section("APPEARANCE")
         self.theme_combo = QComboBox()
-        self.theme_combo.addItem("Dark Theme (Default)", ThemeMode.DARK.value)
-        self.theme_combo.addItem("Light Theme", ThemeMode.LIGHT.value)
-        theme_row.addWidget(self.theme_combo)
-        t_lay.addLayout(theme_row)
+        self.theme_combo.addItem("Porcelain Light (Default)", ThemeMode.LIGHT.value)
+        self.theme_combo.addItem("Soft Pearl", ThemeMode.DARK.value)
+        t_lay.addWidget(
+            self._make_row(
+                "Color Theme",
+                "Choose between Porcelain Light and Soft Pearl neumorphic palettes.",
+                self.theme_combo,
+                is_last=True,
+            )
+        )
         self._layout.addWidget(theme_card)
 
-        # Action Buttons
-        btn_row = QHBoxLayout()
-        self.save_btn = QPushButton("Save Settings")
-        self.save_btn.setObjectName("PrimaryButton")
-        self.save_btn.setIcon(make_icon("check", "#ffffff", 16))
-        self.save_btn.clicked.connect(self._save_settings)
-        btn_row.addWidget(self.save_btn)
+        # Section 4: Components & Diagnostics
+        deps_card = QFrame()
+        deps_card.setObjectName("Card")
+        d_lay = QVBoxLayout(deps_card)
+        d_lay.setContentsMargins(16, 14, 16, 14)
+        d_lay.setSpacing(10)
 
-        self.reset_btn = QPushButton("Discard Changes")
-        self.reset_btn.setObjectName("GhostButton")
-        self.reset_btn.clicked.connect(self.load_from_manager)
-        btn_row.addWidget(self.reset_btn)
-        btn_row.addStretch()
-        self._layout.addLayout(btn_row)
-
-        # Card 4: Dependency Manager & Diagnostics
-        deps_card = self._make_card("COMPONENTS & DIAGNOSTICS")
-        d_lay = deps_card.layout()
-
-        deps_top = QHBoxLayout()
+        self._deps_top_box = QBoxLayout(QBoxLayout.Direction.LeftToRight)
+        self._deps_top_box.setSpacing(8)
+        d_hdr_col = QVBoxLayout()
+        d_hdr_col.setSpacing(2)
+        d_title = QLabel("COMPONENTS & DIAGNOSTICS")
+        d_title.setObjectName("SectionTitle")
         deps_desc = QLabel(
-            "Check built-in components and download FFmpeg automatically for high-quality video and audio."
+            "Verify built-in components and install FFmpeg in one click for 4K merging and MP3 conversion."
         )
         deps_desc.setObjectName("MutedLabel")
         deps_desc.setWordWrap(True)
-        deps_top.addWidget(deps_desc, 1)
+        deps_desc.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
+        d_hdr_col.addWidget(d_title)
+        d_hdr_col.addWidget(deps_desc)
+        self._deps_top_box.addLayout(d_hdr_col, 1)
 
+        d_btns = QHBoxLayout()
+        d_btns.setSpacing(6)
         self.download_ffmpeg_btn = QPushButton("Download FFmpeg")
         self.download_ffmpeg_btn.setObjectName("PrimaryButton")
         self.download_ffmpeg_btn.setIcon(make_icon("download", "#ffffff", 14))
         self.download_ffmpeg_btn.clicked.connect(self._on_download_ffmpeg_clicked)
         self.download_ffmpeg_btn.setVisible(False)
-        deps_top.addWidget(self.download_ffmpeg_btn)
+        d_btns.addWidget(self.download_ffmpeg_btn)
 
         self.recheck_btn = QPushButton("Re-check")
         self.recheck_btn.setObjectName("GhostButton")
-        self.recheck_btn.setIcon(make_icon("retry", "#cbd5e1", 14))
+        self.recheck_btn.setIcon(make_icon("retry", "#475569", 14))
         self.recheck_btn.clicked.connect(self.refresh_dependencies)
-        deps_top.addWidget(self.recheck_btn)
+        d_btns.addWidget(self.recheck_btn)
 
         self.diag_btn = QPushButton("Diagnostics...")
         self.diag_btn.setObjectName("GhostButton")
         self.diag_btn.clicked.connect(self._open_diagnostics)
-        deps_top.addWidget(self.diag_btn)
-        d_lay.addLayout(deps_top)
+        d_btns.addWidget(self.diag_btn)
+        d_btns.addStretch(0)
+        self._deps_top_box.addLayout(d_btns)
+        d_lay.addLayout(self._deps_top_box)
 
         self.ffmpeg_progress_bar = QProgressBar()
         self.ffmpeg_progress_bar.setRange(0, 100)
@@ -230,7 +318,7 @@ class SettingsPage(QWidget):
         d_lay.addWidget(self.ffmpeg_status_label)
 
         self.deps_list_layout = QVBoxLayout()
-        self.deps_list_layout.setSpacing(8)
+        self.deps_list_layout.setSpacing(6)
         d_lay.addLayout(self.deps_list_layout)
         self._layout.addWidget(deps_card)
 
@@ -244,16 +332,42 @@ class SettingsPage(QWidget):
         self.load_from_manager()
         self.refresh_dependencies()
 
-    def _make_card(self, section_title: str) -> QFrame:
+    def _make_section(self, title_text: str) -> tuple[QFrame, QVBoxLayout]:
         card = QFrame()
         card.setObjectName("Card")
         lay = QVBoxLayout(card)
-        lay.setContentsMargins(18, 16, 18, 16)
-        lay.setSpacing(10)
-        lbl = QLabel(section_title)
+        lay.setContentsMargins(16, 14, 16, 6)
+        lay.setSpacing(0)
+        lbl = QLabel(title_text)
         lbl.setObjectName("SectionTitle")
         lay.addWidget(lbl)
-        return card
+        lay.addSpacing(6)
+        return card, lay
+
+    @staticmethod
+    def _make_row(
+        title_text: str,
+        subtitle_text: str,
+        control: QWidget,
+        *,
+        is_last: bool = False,
+    ) -> QFrame:
+        return _ResponsiveSettingRow(
+            title_text,
+            subtitle_text,
+            control,
+            is_last=is_last,
+        )
+
+    def resizeEvent(self, event: QResizeEvent) -> None:  # noqa: N802
+        super().resizeEvent(event)
+        direction = (
+            QBoxLayout.Direction.TopToBottom
+            if event.size().width() < 560
+            else QBoxLayout.Direction.LeftToRight
+        )
+        if self._deps_top_box.direction() != direction:
+            self._deps_top_box.setDirection(direction)
 
     def _browse_folder(self) -> None:
         chosen = QFileDialog.getExistingDirectory(
@@ -319,8 +433,8 @@ class SettingsPage(QWidget):
             row = QFrame()
             row.setObjectName("SubCard")
             lay = QVBoxLayout(row)
-            lay.setContentsMargins(12, 10, 12, 10)
-            lay.setSpacing(4)
+            lay.setContentsMargins(12, 8, 12, 8)
+            lay.setSpacing(3)
 
             top = QHBoxLayout()
             name_lbl = QLabel(dep.name)

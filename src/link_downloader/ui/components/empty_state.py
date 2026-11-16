@@ -20,20 +20,20 @@ class EmptyStateWidget(QFrame):
         parent=None,
     ) -> None:
         super().__init__(parent)
-        self.setObjectName("Card")
+        self.setObjectName("EmptyCard")
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(32, 42, 32, 42)
-        layout.setSpacing(10)
+        layout.setContentsMargins(24, 24, 24, 24)
+        layout.setSpacing(6)
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         self._icon_label = QLabel()
         self._icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._icon_label.setPixmap(make_icon(icon_name, "#64748b", 36).pixmap(36, 36))
+        self._icon_label.setPixmap(make_icon(icon_name, "#71717a", 28).pixmap(28, 28))
 
         self._title_label = QLabel(title)
         self._title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._title_label.setStyleSheet("font-size: 15px; font-weight: 600;")
+        self._title_label.setStyleSheet("font-size: 13px; font-weight: 600;")
 
         self._subtitle_label = QLabel(subtitle)
         self._subtitle_label.setObjectName("MutedLabel")

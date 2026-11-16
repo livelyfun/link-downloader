@@ -45,7 +45,7 @@ class AppSettings:
     overwrite_behavior: str = OverwriteBehavior.RENAME.value
     auto_sanitize_filenames: bool = True
     prefer_ipv4: bool = True
-    theme: str = ThemeMode.DARK.value
+    theme: str = ThemeMode.LIGHT.value
     legacy_migrated: bool = False
 
     def to_dict(self) -> dict[str, Any]:

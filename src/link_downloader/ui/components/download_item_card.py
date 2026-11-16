@@ -3,7 +3,17 @@
 from __future__ import annotations
 
 from PySide6.QtCore import Signal
-from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QProgressBar, QPushButton, QVBoxLayout
+from PySide6.QtGui import QResizeEvent
+from PySide6.QtWidgets import (
+    QBoxLayout,
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QProgressBar,
+    QPushButton,
+    QSizePolicy,
+    QVBoxLayout,
+)
 
 from link_downloader.core.enums import DownloadStatus
 from link_downloader.core.models import DownloadJob, format_bytes, format_duration
@@ -44,64 +54,73 @@ class DownloadItemCard(QFrame):
         self.job_id = job.job_id
 
         root = QVBoxLayout(self)
-        root.setContentsMargins(16, 14, 16, 14)
-        root.setSpacing(8)
+        root.setContentsMargins(14, 10, 14, 10)
+        root.setSpacing(6)
 
-        # Header row
-        top = QHBoxLayout()
-        top.setSpacing(10)
+        # Header row (responsive: side-by-side wide, stacked narrow)
+        self._header_box = QBoxLayout(QBoxLayout.Direction.LeftToRight)
+        self._header_box.setSpacing(8)
 
         title_col = QVBoxLayout()
-        title_col.setSpacing(2)
+        title_col.setSpacing(1)
         self.title_label = QLabel(job.title)
-        self.title_label.setStyleSheet("font-size: 14px; font-weight: 600;")
+        self.title_label.setStyleSheet("font-size: 13px; font-weight: 600;")
         self.title_label.setWordWrap(True)
+        self.title_label.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
 
         self.meta_label = QLabel(f"{job.platform} · {job.format_label}")
         self.meta_label.setObjectName("MutedLabel")
+        self.meta_label.setWordWrap(True)
+        self.meta_label.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
         title_col.addWidget(self.title_label)
         title_col.addWidget(self.meta_label)
-        top.addLayout(title_col, 1)
+        self._header_box.addLayout(title_col, 1)
+
+        actions_row = QHBoxLayout()
+        actions_row.setSpacing(6)
 
         self.status_badge = QLabel("Queued")
         self.status_badge.setObjectName("BadgeInfo")
-        top.addWidget(self.status_badge)
+        actions_row.addWidget(self.status_badge)
 
         self.pause_btn = QPushButton("Pause")
         self.pause_btn.setObjectName("GhostButton")
-        self.pause_btn.setIcon(make_icon("pause", "#cbd5e1", 14))
+        self.pause_btn.setIcon(make_icon("pause", "#475569", 13))
         self.pause_btn.clicked.connect(lambda: self.pause_clicked.emit(self.job_id))
-        top.addWidget(self.pause_btn)
+        actions_row.addWidget(self.pause_btn)
 
         self.resume_btn = QPushButton("Resume")
         self.resume_btn.setObjectName("PrimaryButton")
-        self.resume_btn.setIcon(make_icon("play", "#ffffff", 14))
+        self.resume_btn.setIcon(make_icon("play", "#ffffff", 13))
         self.resume_btn.clicked.connect(lambda: self.resume_clicked.emit(self.job_id))
-        top.addWidget(self.resume_btn)
+        actions_row.addWidget(self.resume_btn)
 
         self.retry_btn = QPushButton("Retry")
         self.retry_btn.setObjectName("GhostButton")
-        self.retry_btn.setIcon(make_icon("retry", "#cbd5e1", 14))
+        self.retry_btn.setIcon(make_icon("retry", "#475569", 13))
         self.retry_btn.clicked.connect(lambda: self.retry_clicked.emit(self.job_id))
-        top.addWidget(self.retry_btn)
+        actions_row.addWidget(self.retry_btn)
 
         self.cancel_btn = QPushButton("Cancel")
         self.cancel_btn.setObjectName("DangerButton")
         self.cancel_btn.clicked.connect(lambda: self.cancel_clicked.emit(self.job_id))
-        top.addWidget(self.cancel_btn)
+        actions_row.addWidget(self.cancel_btn)
 
         self.open_btn = QPushButton("Open")
         self.open_btn.setObjectName("PrimaryButton")
         self.open_btn.clicked.connect(self._emit_open_file)
-        top.addWidget(self.open_btn)
+        actions_row.addWidget(self.open_btn)
 
-        self.folder_btn = QPushButton("Show in Folder")
+        self.folder_btn = QPushButton("Folder")
         self.folder_btn.setObjectName("GhostButton")
-        self.folder_btn.setIcon(make_icon("folder", "#cbd5e1", 14))
+        self.folder_btn.setIcon(make_icon("folder", "#475569", 13))
+        self.folder_btn.setToolTip("Show file in folder")
         self.folder_btn.clicked.connect(self._emit_show_folder)
-        top.addWidget(self.folder_btn)
+        actions_row.addWidget(self.folder_btn)
+        actions_row.addStretch(0)
 
-        root.addLayout(top)
+        self._header_box.addLayout(actions_row)
+        root.addLayout(self._header_box)
 
         # Progress bar
         self.progress_bar = QProgressBar()
@@ -114,6 +133,8 @@ class DownloadItemCard(QFrame):
         bottom = QHBoxLayout()
         self.telemetry_label = QLabel("Queued")
         self.telemetry_label.setObjectName("MutedLabel")
+        self.telemetry_label.setWordWrap(True)
+        self.telemetry_label.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
         self.percent_label = QLabel("0%")
         self.percent_label.setObjectName("MutedLabel")
         bottom.addWidget(self.telemetry_label, 1)
@@ -122,6 +143,16 @@ class DownloadItemCard(QFrame):
 
         self._file_path_str: str = ""
         self.update_from_job(job)
+
+    def resizeEvent(self, event: QResizeEvent) -> None:  # noqa: N802
+        super().resizeEvent(event)
+        direction = (
+            QBoxLayout.Direction.TopToBottom
+            if event.size().width() < 520
+            else QBoxLayout.Direction.LeftToRight
+        )
+        if self._header_box.direction() != direction:
+            self._header_box.setDirection(direction)
 
     def _emit_open_file(self) -> None:
         if self._file_path_str:
